@@ -53,6 +53,15 @@ interface FileItem {
   download_url?: string;
 }
 
+interface SEOData {
+  meta_title: string;
+  meta_description: string;
+  meta_keywords: string;
+  h1: string;
+  h2: string;
+  "content-main": string;
+}
+
 export default function RepositoryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -79,6 +88,18 @@ export default function RepositoryPage() {
   const [isInviting, setIsInviting] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+
+  // SEO states
+  const [seoData, setSeoData] = useState<SEOData | null>(null);
+  const [isEditingSEO, setIsEditingSEO] = useState(false);
+  const [seoFormData, setSeoFormData] = useState<SEOData>({
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    h1: "",
+    h2: "",
+    "content-main": ""
+  });
 
   // Format dates in a more readable format
   const formatDate = (dateString: string | null) => {
@@ -527,6 +548,19 @@ const removeCollaborator = async (username: string) => {
         path: file.path
       });
       
+      // Check if this is a SEO file and parse it
+      if (isSEOFile(file.name, file.path)) {
+        const parsedSEO = parseSEOContent(decodedContent);
+        if (parsedSEO) {
+          setSeoData(parsedSEO);
+          setSeoFormData(parsedSEO);
+        } else {
+          setSeoData(null);
+        }
+      } else {
+        setSeoData(null);
+      }
+      
       // Also set edited content to be the same initially
       setEditedContent(decodedContent);
       
@@ -638,6 +672,72 @@ const removeCollaborator = async (username: string) => {
     }
   };
 
+  // Function to save SEO data
+const handleSaveSEOContent = async () => {
+  if (!session?.accessToken || !fileContent) return;
+  
+  try {
+    setIsLoading(true);
+    
+    // Convert form data back to JSON
+    const jsonContent = JSON.stringify(seoFormData, null, 2);
+    
+    // First, get the file's SHA
+    const fileResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`, 
+      {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          "User-Agent": "MetaSync-App"
+        }
+      }
+    );
+    
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to get file details: ${fileResponse.status}`);
+    }
+    
+    const fileData = await fileResponse.json();
+    
+    // Create the update payload
+    const updateResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          "Content-Type": "application/json",
+          "User-Agent": "MetaSync-App"
+        },
+        body: JSON.stringify({
+          message: `Update SEO content via MetaSync`,
+          content: btoa(jsonContent), // base64 encode the content
+          sha: fileData.sha
+        })
+      }
+    );
+    
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse.text();
+      throw new Error(`Failed to update file: ${updateResponse.status} - ${errorData}`);
+    }
+    
+    // Update was successful
+    setFileContent({
+      ...fileContent,
+      content: jsonContent
+    });
+    setSeoData(seoFormData);
+    setIsEditingSEO(false);
+    
+  } catch (err) {
+    console.error("Error updating SEO file:", err);
+    setError("Failed to save SEO content. Please check your permissions or file status.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   const getFileIcon = (file: FileItem) => {
     if (file.type === "dir") {
       return (
@@ -680,6 +780,26 @@ const removeCollaborator = async (username: string) => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
     return textExtensions.includes(ext);
   };
+
+  // Add this function to detect if file is seo.json
+const isSEOFile = (filename: string, path: string) => {
+  return filename === "seo.json" || path === "seo.json";
+};
+
+// Add this function to parse and validate SEO JSON
+const parseSEOContent = (content: string): SEOData | null => {
+  try {
+    const parsed = JSON.parse(content);
+    // Validate that it has the expected SEO structure
+    if (parsed && typeof parsed === 'object' && 
+        'meta_title' in parsed && 'meta_description' in parsed) {
+      return parsed as SEOData;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
 
   if (status === "loading" || isLoading) {
     return (
@@ -818,14 +938,6 @@ const removeCollaborator = async (username: string) => {
       Settings
     </button>
                     
-                    {fileContent && !isEditMode && isTextFile(fileContent.name) && (
-                      <button 
-                        onClick={handleEditClick}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                      >
-                        Edit Content
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -840,6 +952,8 @@ const removeCollaborator = async (username: string) => {
                       onClick={() => {
                         setFileContent(null);
                         setIsEditMode(false);
+                        setIsEditingSEO(false);
+                        setSeoData(null);
                       }}
                       className="text-neutral-400 hover:text-white p-1 rounded"
                     >
@@ -853,34 +967,209 @@ const removeCollaborator = async (username: string) => {
                         {fileContent.path}
                       </code>
                     </div>
+                    
+                    {seoData && (
+                      <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
+                        SEO File
+                      </span>
+                    )}
                   </div>
                   
-                  {isEditMode && (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {seoData && !isEditingSEO && (
                       <button 
-                        onClick={handleSaveContent}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        onClick={() => setIsEditingSEO(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
                       >
-                        Save Changes
+                        Edit SEO Content
                       </button>
+                    )}
+                    
+                    {isEditingSEO && (
+                      <>
+                        <button 
+                          onClick={handleSaveSEOContent}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Save SEO Changes
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setIsEditingSEO(false);
+                            setSeoFormData(seoData!);
+                          }}
+                          className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    
+                    {isEditMode && !seoData && (
+                      <>
+                        <button 
+                          onClick={handleSaveContent}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Save Changes
+                        </button>
+                        <button 
+                          onClick={handleCancelEdit}
+                          className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    
+                    {!isEditMode && !isEditingSEO && isTextFile(fileContent.name) && !seoData && (
                       <button 
-                        onClick={handleCancelEdit}
-                        className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1 rounded text-sm"
+                        onClick={handleEditClick}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
                       >
-                        Cancel
+                        Edit Content
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 
-                <div className="p-4 overflow-x-auto">
-                  {isEditMode ? (
+                <div className="p-6">
+                  {seoData && isEditingSEO ? (
+                    /* SEO Form Editor */
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Page Title (meta_title)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.meta_title}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_title: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the page title for search engines"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results and browser tabs</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Meta Description
+                        </label>
+                        <textarea
+                          value={seoFormData.meta_description}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_description: e.target.value }))}
+                          rows={3}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                          placeholder="Enter a brief description of the page content"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results below the title (150-160 characters recommended)</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Keywords (meta_keywords)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.meta_keywords}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_keywords: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="keyword1, keyword2, keyword3"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">Comma-separated keywords that describe your page content</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Main Heading (H1)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.h1}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h1: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the main heading for your page"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">The primary heading that visitors will see</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Secondary Heading (H2)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.h2}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h2: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the secondary heading"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">A supporting headline or subtitle</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Main Content
+                        </label>
+                        <textarea
+                          value={seoFormData["content-main"]}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, "content-main": e.target.value }))}
+                          rows={4}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                          placeholder="Enter the main content or description for your page"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">The main paragraph or content that describes your page</p>
+                      </div>
+                    </div>
+                  ) : seoData ? (
+                    /* SEO Content Preview */
+                    <div className="space-y-6">
+                      <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
+                        <h3 className="text-lg font-medium text-white mb-2">SEO Content Preview</h3>
+                        <p className="text-neutral-300 text-sm">This file contains SEO metadata for your website. Use the "Edit SEO Content" button to make changes safely.</p>
+                      </div>
+                      
+                      <div className="grid gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Page Title</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_title}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Meta Description</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_description}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Keywords</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_keywords}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Heading (H1)</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h1}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Secondary Heading (H2)</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h2}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Content</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData["content-main"]}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isEditMode ? (
+                    /* Regular text editor */
                     <textarea 
                       value={editedContent} 
                       onChange={(e) => setEditedContent(e.target.value)}
                       className="w-full h-96 bg-[#1e1e1e] text-white font-mono p-3 rounded border border-neutral-700 resize-y"
                     />
                   ) : (
+                    /* Regular file preview */
                     <pre className="text-neutral-300 font-mono text-sm p-4 overflow-auto bg-[#1e1e1e] rounded whitespace-pre-wrap">
                       {fileContent.content}
                     </pre>
