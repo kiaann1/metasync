@@ -1,34 +1,24 @@
-import { Toaster } from "@/components/ui/sonner"
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { cn } from "@/lib/utils";
 import "./globals.css";
+import SessionWrapper from "./components/SessionWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: {
-    template: "%s | Pages CMS",
-    default: "Pages CMS",
-  },
-  description: "The No-Hassle CMS for GitHub",
+  title: "MetaSync CMS",
+  description: "A GitHub-powered content management system",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {  
-	return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          "min-h-screen bg-background font-sans antialiased",
-          inter.className
-        )}
-      >
-        {children}
-        <Toaster/>
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <SessionWrapper>{children}</SessionWrapper>
       </body>
     </html>
   );

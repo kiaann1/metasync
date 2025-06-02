@@ -1,109 +1,307 @@
+import { Octokit } from "@octokit/rest";
 
-/**
- * Helper functions to get GitHub Appinstallations info.
- */
-
-import { createOctokitInstance } from "@/lib/utils/octokit";
-
-// Get all GitHub App installations for the authenticated user.
-const getInstallations = async (
-  token: string,
-  owners?: string[],
-  filterById: boolean = false
-) => {
-  let installations: any[] = [];
-  const matchedInstallations: any[] = [];
-
-  const octokit = createOctokitInstance(token);
-
-  let page = 1;
-  let hasMore = true;
-  const perPage = 100;
-
-  while (hasMore) {
-    const response = await octokit.rest.apps.listInstallationsForAuthenticatedUser({
-      page,
-      per_page: perPage
-    });
-
-    if (response.data.installations.length === 0) break;
-
-    installations = installations.concat(response.data.installations);
-
-    if (owners) {
-      for (const installation of installations) {
-        const matches = filterById
-          ? owners.includes(installation.account.id.toString()) // Match by ID
-          : owners.includes(installation.account.login.toLowerCase()); // Match by name
-
-        if (matches && !matchedInstallations.find((m: any) => m.id === installation.id)) {
-          matchedInstallations.push(installation);
-        }
-      }
-
-      // Early exit if all desired installations are found
-      if (matchedInstallations.length === owners.length) {
-        return matchedInstallations;
-      }
-    }
-    
-    hasMore = (page * perPage <= response.data.total_count);
-    page++;
-  }
-
-  return matchedInstallations.length ? matchedInstallations : installations;
+// Make Repository type more flexible to match GitHub API
+export type Repository = {
+  name: string;
+  full_name: string;
+  description: string | null;
+  private: boolean;
+  updated_at: string; // We'll handle this in mapping
+  language: string | null | undefined;
+  visibility: string;
+  default_branch?: string;
+  owner: {
+    login: string;
+  };
+  [key: string]: unknown; // Changed from any to unknown
 };
 
-// Get all repositories for a GitHub App installation.)
-const getInstallationRepos = async (
-  token: string,
-  installationId: number,
-  repos?: string[],
-  filterById: boolean = false
-) => {
-  let allRepos: any[] = [];
-  const matchedRepos: any[] = [];
-
-  const octokit = createOctokitInstance(token);
-
-  let page = 1;
-  let hasMore = true;
-  const perPage = 100;
-
-  while (hasMore) {
-    const response = await octokit.rest.apps.listInstallationReposForAuthenticatedUser({
-      installation_id: installationId,
-      per_page: perPage,
-      page
-    });
-
-    if (response.data.repositories.length === 0) break;
-
-    allRepos = allRepos.concat(response.data.repositories);
-
-    if (repos) {
-      const lowercaseRepos = repos.map((repo) => repo.toLowerCase());
-      for (const repo of allRepos) {
-        const matches = filterById
-          ? lowercaseRepos.includes(repo.id.toString()) // Match by ID
-          : lowercaseRepos.includes(repo.name.toLowerCase()); // Match by name
-
-        if (matches && !matchedRepos.find((m: any) => m.id === repo.id)) {
-          matchedRepos.push(repo);
-        }
-      }
-
-      // Early exit if all desired repos are found
-      if (matchedRepos.length === lowercaseRepos.length) {
-        return matchedRepos;
-      }
-    }
-    
-    hasMore = (page * perPage <= response.data.total_count);
-    page++;
-  }
-
-  return matchedRepos.length ? matchedRepos : allRepos;
+// Also add a type for the raw GitHub API repository response
+export type GitHubApiRepository = {
+  name: string;
+  full_name: string;
+  description: string | null | undefined;
+  private: boolean;
+  updated_at: string | null | undefined;
+  language: string | null | undefined;
+  visibility?: string;
+  default_branch?: string;
+  owner: {
+    login: string;
+    [key: string]: unknown; // Changed from any to unknown
+  };
+  [key: string]: unknown; // Changed from any to unknown
 };
 
-export { getInstallations, getInstallationRepos };
+export type GitHubContent = {
+  name: string;
+  path: string;
+  type: string;  // "file" or "dir"
+  sha: string;
+  size: number;
+  content?: string;
+  encoding?: string;
+  download_url: string | null;
+  html_url: string;
+};
+
+export type GitHubFile = {
+  name: string;
+  path: string;
+  type: "file";
+  content: string;
+  encoding: string;
+  sha: string;
+  lastUpdated: string;
+  download_url: string | null;
+  fileType: string;  // yml, json, md, etc.
+};
+
+// Define GitHub error interface for better type checking
+interface GitHubError {
+  status: number;
+  message?: string;
+}
+
+// Create Octokit instance with access token
+const createOctokit = (accessToken: string) => {
+  return new Octokit({
+    auth: accessToken,
+  });
+};
+
+// Get user information
+export async function getCurrentUser(accessToken: string) {
+  const octokit = createOctokit(accessToken);
+  try {
+    const { data } = await octokit.users.getAuthenticated();
+    return data;
+  } catch (error: unknown) {
+    console.error("Error fetching user data:", error);
+    throw error;
+  }
+}
+
+// Get user organizations
+export async function getUserOrganizations(accessToken: string) {
+  const octokit = createOctokit(accessToken);
+  try {
+    const { data } = await octokit.orgs.listForAuthenticatedUser();
+    return data;
+  } catch (error: unknown) {
+    console.error("Error fetching user organizations:", error);
+    throw error;
+  }
+}
+
+// Get repositories for user or organization
+export async function getRepositories(accessToken: string, org?: string) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    if (org) {
+      // Get org repos the user has access to
+      const { data } = await octokit.repos.listForOrg({
+        org,
+        sort: "updated",
+        per_page: 100,
+      });
+      return data;
+    } else {
+      // Get user's repos
+      const { data } = await octokit.repos.listForAuthenticatedUser({
+        sort: "updated",
+        per_page: 100,
+      });
+      return data;
+    }
+  } catch (error: unknown) {
+    console.error("Error fetching repositories:", error);
+    throw error;
+  }
+}
+
+// Type guard to check if an error is a GitHub error
+function isGitHubError(error: unknown): error is GitHubError {
+  return (
+    typeof error === 'object' && 
+    error !== null && 
+    'status' in error && 
+    typeof (error as GitHubError).status === 'number'
+  );
+}
+
+// Get contents of a repository (files and directories)
+export async function getRepositoryContents(
+  accessToken: string, 
+  owner: string, 
+  repo: string, 
+  path: string = "",
+  ref: string = "main"
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref,
+    });
+    
+    return Array.isArray(data) ? data : [data];
+  } catch (error: unknown) {
+    console.error(`Error fetching contents for ${owner}/${repo}/${path}:`, error);
+    // If 404, return empty array (no files exist)
+    if (isGitHubError(error) && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+// Get a single file from a repository
+export async function getFileContent(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  path: string,
+  ref: string = "main"
+): Promise<GitHubFile | null> {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref,
+    });
+    
+    if (Array.isArray(data) || data.type !== "file") {
+      throw new Error("Expected a file but got a directory");
+    }
+    
+    const content = data.content 
+      ? Buffer.from(data.content, "base64").toString("utf8")
+      : "";
+      
+    // Get extension from filename
+    const fileType = data.name.split('.').pop() || "";
+    
+    // Get the last commit for this file for "last updated" info
+    const commits = await octokit.repos.listCommits({
+      owner,
+      repo,
+      path,
+      per_page: 1
+    });
+    
+    const lastUpdated = commits.data[0]?.commit?.committer?.date || data.sha.substring(0, 7);
+    
+    return {
+      name: data.name,
+      path: data.path,
+      type: "file",
+      content,
+      encoding: data.encoding,
+      sha: data.sha,
+      fileType,
+      lastUpdated,
+      download_url: data.download_url,
+    };
+  } catch (error: unknown) {
+    console.error(`Error fetching file ${owner}/${repo}/${path}:`, error);
+    // If 404, return null (file doesn't exist)
+    if (isGitHubError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Create or update a file in a repository
+export async function createOrUpdateFile(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  sha?: string
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path,
+      message,
+      content: Buffer.from(content).toString("base64"),
+      sha,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error saving file ${owner}/${repo}/${path}:`, error);
+    throw error;
+  }
+}
+
+// Get repository branches
+export async function getRepositoryBranches(
+  accessToken: string,
+  owner: string,
+  repo: string
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.repos.listBranches({
+      owner,
+      repo,
+      per_page: 100,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error fetching branches for ${owner}/${repo}:`, error);
+    throw error;
+  }
+}
+
+// Get recently visited repositories (we'll need to track this client-side)
+export function getRecentRepositories(): string[] {
+  if (typeof window === 'undefined') return [];
+  
+  try {
+    const recentRepos = JSON.parse(localStorage.getItem('recentRepos') || '[]');
+    return recentRepos;
+  } catch (error: unknown) {
+    console.error('Error getting recent repos from localStorage:', error);
+    return [];
+  }
+}
+
+// Save a recently visited repository
+export function saveRecentRepository(fullName: string): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    let recentRepos = JSON.parse(localStorage.getItem('recentRepos') || '[]');
+    
+    // Remove if exists already (to move to top)
+    recentRepos = recentRepos.filter((repo: string) => repo !== fullName);
+    
+    // Add to beginning
+    recentRepos.unshift(fullName);
+    
+    // Keep only most recent 5
+    recentRepos = recentRepos.slice(0, 5);
+    
+    localStorage.setItem('recentRepos', JSON.stringify(recentRepos));
+  } catch (error: unknown) {
+    console.error('Error saving recent repo:', error);
+  }
+}
