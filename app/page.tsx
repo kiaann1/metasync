@@ -37,24 +37,16 @@ export default function Home() {
             <Link href="#" className="font-bold text-white">
               About
             </Link>
-            <Link href="#" className="text-neutral-400 hover:text-white transition">
+            <Link href="/" className="text-neutral-400 hover:text-white transition">
               Docs
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/kiaann1/metasync"
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral-400 hover:text-white transition"
             >
               GitHub <span className="align-super text-xs">↗</span>
-            </a>
-            <a
-              href="https://discord.gg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-400 hover:text-white transition"
-            >
-              Discord <span className="align-super text-xs">↗</span>
             </a>
           </div>
           
@@ -181,6 +173,123 @@ export default function Home() {
         </div>
         
       </main>
+
+      {/* Features Section */}
+      <section className="py-20 px-4 bg-neutral-900/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4">Everything you need to manage your repositories</h2>
+            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
+              From browsing files to managing collaborators, MetaSync provides all the tools you need in one clean interface.
+            </p>
+          </div>
+
+          {/* Feature 1: Dashboard */}
+          <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
+            <div>
+              <h3 className="text-3xl font-semibold mb-4">Unified Dashboard</h3>
+              <p className="text-neutral-300 text-lg mb-6">
+                View all your repositories at a glance. Get quick insights into activity, languages, and recent updates across your entire GitHub portfolio.
+              </p>
+              <ul className="space-y-2 text-neutral-300">
+                <li className="flex items-center"><span className="text-green-400 mr-2">✓</span> Repository overview and statistics</li>
+                <li className="flex items-center"><span className="text-green-400 mr-2">✓</span> Quick access to recent projects</li>
+                <li className="flex items-center"><span className="text-green-400 mr-2">✓</span> Search and filter functionality</li>
+              </ul>
+            </div>
+            <div className="rounded-lg overflow-hidden shadow-xl border border-neutral-800">
+              <Image
+                src="/screenshots/dashboard.png"
+                alt="MetaSync Dashboard"
+                width={600}
+                height={400}
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+
+          {/* Feature 2: SEO Management */}
+          <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
+            <div className="order-2 md:order-1 rounded-lg overflow-hidden shadow-xl border border-neutral-800">
+              <Image
+                src="/screenshots/seo.png"
+                alt="SEO Management Interface"
+                width={600}
+                height={400}
+                className="w-full h-auto"
+              />
+            </div>
+            <div className="order-1 md:order-2">
+              <h3 className="text-3xl font-semibold mb-4">Advanced SEO Management</h3>
+              <p className="text-neutral-300 text-lg mb-6">
+                Optimize your content for search engines with our specialized SEO editor. Create and manage metadata files with an intuitive form interface.
+              </p>
+              <ul className="space-y-2 text-neutral-300">
+                <li className="flex items-center"><span className="text-purple-400 mr-2">✓</span> Visual SEO form editor</li>
+                <li className="flex items-center"><span className="text-purple-400 mr-2">✓</span> Meta tags and descriptions</li>
+                <li className="flex items-center"><span className="text-purple-400 mr-2">✓</span> Structured data management</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Feature 3: File Creation */}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <h3 className="text-3xl font-semibold mb-4">Smart File Creation</h3>
+              <p className="text-neutral-300 text-lg mb-6">
+                Create new files with intelligent templates. Whether it's documentation, configuration, or SEO files, we've got you covered with pre-built templates.
+              </p>
+              <ul className="space-y-2 text-neutral-300">
+                <li className="flex items-center"><span className="text-blue-400 mr-2">✓</span> Pre-built file templates</li>
+                <li className="flex items-center"><span className="text-blue-400 mr-2">✓</span> Custom file creation</li>
+                <li className="flex items-center"><span className="text-blue-400 mr-2">✓</span> README and documentation helpers</li>
+              </ul>
+            </div>
+            <div className="rounded-lg overflow-hidden shadow-xl border border-neutral-800">
+              <Image
+                src="/screenshots/create.png"
+                alt="File Creation Interface"
+                width={600}
+                height={400}
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-4 text-center">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-4xl font-bold mb-6">Ready to streamline your workflow?</h2>
+          <p className="text-neutral-300 text-lg mb-8">
+            Join developers who are already using MetaSync to manage their GitHub repositories more efficiently.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link
+              href="/signin"
+              className="bg-white text-black font-medium px-8 py-4 rounded-lg shadow hover:bg-neutral-200 transition text-lg"
+            >
+              Get Started Free
+            </Link>
+            <a
+              href="https://github.com/kiaann1/metasync"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-transparent text-white font-medium px-8 py-4 rounded-lg border border-neutral-700 hover:bg-neutral-800 transition text-lg"
+            >
+              View on GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-neutral-800 py-8 px-4 text-center text-neutral-400">
+        <div className="max-w-6xl mx-auto">
+          <p>&copy; 2024 MetaSync. Built with ❤️ using Next.js and GitHub API.</p>
+        </div>
+      </footer>
     </div>
   );
 }
