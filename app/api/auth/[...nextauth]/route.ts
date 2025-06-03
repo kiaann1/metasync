@@ -8,7 +8,7 @@ const handler = NextAuth({
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "repo user:email read:user",
+          scope: "repo user:email",
         },
       },
     }),
@@ -32,35 +32,25 @@ const handler = NextAuth({
       }
       return session;
     },
-    async signIn({ user, account, profile }) {
-      // Allow sign in
+    async signIn({ user, account, profile, email, credentials }) {
+      console.log("SignIn callback triggered:", { user: user?.email, account: account?.provider });
       return true;
     },
     async redirect({ url, baseUrl }) {
-      // Force production URL in production environment
-      const isProduction = process.env.NODE_ENV === "production";
-      const productionUrl = "https://metasynccms.vercel.app";
-      const currentBaseUrl = isProduction ? productionUrl : baseUrl;
-
-      // Allows relative callback URLs
+      console.log("Redirect callback:", { url, baseUrl, env: process.env.NODE_ENV });
+      
+      // Simplified redirect logic
       if (url.startsWith("/")) {
-        return `${currentBaseUrl}${url}`;
+        return `${baseUrl}${url}`;
       }
-
-      // Check if URL is on the same origin as our production/development URL
-      try {
-        const urlObj = new URL(url);
-        const baseUrlObj = new URL(currentBaseUrl);
-
-        if (urlObj.origin === baseUrlObj.origin) {
-          return url;
-        }
-      } catch (error) {
-        console.error("Error parsing URLs in redirect:", error);
+      
+      // For same origin
+      if (url.startsWith(baseUrl)) {
+        return url;
       }
-
-      // Default to dashboard
-      return `${currentBaseUrl}/dashboard`;
+      
+      // Default redirect
+      return `${baseUrl}/dashboard`;
     },
   },
   pages: {
@@ -68,7 +58,32 @@ const handler = NextAuth({
     error: "/signin",
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  debug: true, // Enable debug for both dev and prod temporarily
+  events: {
+    async signIn(message) {
+      console.log("SignIn event:", message);
+    },
+    async signOut(message) {
+      console.log("SignOut event:", message);
+    },
+    async createUser(message) {
+      console.log("CreateUser event:", message);
+    },
+    async session(message) {
+      console.log("Session event:", message);
+    },
+  },
+  logger: {
+    error(code, metadata) {
+      console.error("NextAuth Error:", code, metadata);
+    },
+    warn(code) {
+      console.warn("NextAuth Warning:", code);
+    },
+    debug(code, metadata) {
+      console.log("NextAuth Debug:", code, metadata);
+    },
+  },
 });
 
 export { handler as GET, handler as POST };
