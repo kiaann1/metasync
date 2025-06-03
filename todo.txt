@@ -19,7 +19,8 @@
 	•	Add an audit log for tracking who made changes and when, especially if the platform is used by teams.
 
 6. Integration with Other Platforms
-	•	If relevant, integrate with other tools like Google Search Console, Analytics, or third-party SEO tools to pull in data directly into the platform, so users can optimise their pages with data-driven insights.
+	•	If relevant, integrate with other tools like Google Search Console, Analytics, or third-party SEO tools to pull in data directly into the platform, 
+	so users can optimise their pages with data-driven insights.
 
 7. User Dashboard / Profile
 	•	Create a user dashboard where users can view all their active repositories, track ongoing PRs, and see their editing history.
@@ -29,8 +30,14 @@
 	•	If users manage multiple repositories, build an aggregated view where they can manage and edit files across different repos more easily.
 	•	Provide bulk editing options where users can update certain settings across multiple repositories at once.
 
-9. add "Create File" in the repo  ✅
+9̶.̶ a̶d̶d̶ "̶C̶r̶e̶a̶t̶e̶ F̶i̶l̶e̶"̶ i̶n̶ t̶h̶e̶ r̶e̶p̶o̶  ✅̶
 
 10. In SEO File, add entry for robots.txt, and also add a tickbox for noindex the page or let it be crawled
 
-11. Update SEO file detection to work with any *.seo.json files (not just seo.json) ✅
+1̶1̶.̶ U̶p̶d̶a̶t̶e̶ S̶E̶O̶ f̶i̶l̶e̶ d̶e̶t̶e̶c̶t̶i̶o̶n̶ t̶o̶ w̶o̶r̶k̶ w̶i̶t̶h̶ a̶n̶y̶ *̶.̶s̶e̶o̶.̶j̶s̶o̶n̶ f̶i̶l̶e̶s̶ (̶n̶o̶t̶ j̶u̶s̶t̶ s̶e̶o̶.̶j̶s̶o̶n̶)̶ ✅̶
+
+12. When saving a change to a file - make a popup that allows them to choose which branch to save to - recommend a "review" branch
+this will stop people from aimlessly commiting
+
+13. "For other collaborators, show the editable role dropdown" - only the repo owner should be able to change anyones roles. 
+collaborators shouldnt be able to change their own roles
