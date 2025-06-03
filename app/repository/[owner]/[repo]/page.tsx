@@ -213,7 +213,7 @@ const customRoles: CustomRole[] = [
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${hours}:${minutes}:${seconds} ${day}-${month}-${year} `;
   };
 
 // Update the main useEffect for authentication and time
@@ -1511,7 +1511,7 @@ Your project license.
           )}
         </div>
         <div className="text-neutral-400 text-sm">
-          <div>Current Date and Time (UTC): {currentTime}</div>
+          <div>Current Date and Time: {currentTime}</div>
           <div>Current User: {session?.user?.name || "Unknown"}</div>
         </div>
       </header>
@@ -1983,7 +1983,7 @@ Your project license.
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
                 </div>
-                <h2 className="text-xl font-semibold text-white">Create SEO File</h2>
+                <h2 className="text-xl font-semibold text-white">Create File</h2>
               </div>
               <button 
                 onClick={handleCancelCreateSEO}
