@@ -9,19 +9,19 @@ MetaSync provides an intuitive interface for managing your GitHub repositories, 
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard](./screenshots/dashboard.png)
+![Dashboard](app/screenshots/dashboard.png)
 *Browse and manage all your GitHub repositories in one place*
 
 ### Repository Management
-![Repository View](./screenshots/repository.png)
+![Repository View](app/screenshots/repository.png)
 *Navigate through files and folders with an intuitive interface*
 
 ### File Editor
-![File Editor](./screenshots/seo.png)
+![File Editor](app/screenshots/seo.png)
 *Edit files directly in the browser with syntax highlighting*
 
 ### Create New Files
-![SEO Editor](./screenshots/create.png)
+![SEO Editor](app/screenshots/create.png)
 *Manage SEO metadata with our specialised form editor*
 
 
