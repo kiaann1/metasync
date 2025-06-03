@@ -1,6 +1,4 @@
-add "Create File" in the repo
-
-User Permissions / Roles
+1. User Permissions / Roles
 	•	Add more granular permissions for different types of users (e.g., admins, content editors, viewers).
 	•	Allow repo owners to manage user access to specific repositories or parts of the configuration files.
 
@@ -30,3 +28,5 @@ User Permissions / Roles
 8. Multi-Repo Management
 	•	If users manage multiple repositories, build an aggregated view where they can manage and edit files across different repos more easily.
 	•	Provide bulk editing options where users can update certain settings across multiple repositories at once.
+
+9. add "Create File" in the repo
