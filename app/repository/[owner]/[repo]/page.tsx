@@ -54,12 +54,7 @@ interface FileItem {
 }
 
 interface SEOData {
-  meta_title: string;
-  meta_description: string;
-  meta_keywords: string;
-  h1: string;
-  h2: string;
-  "content-main": string;
+  [key: string]: string | number | boolean | null;
 }
 
 export default function RepositoryPage() {
@@ -92,14 +87,7 @@ export default function RepositoryPage() {
   // SEO states
   const [seoData, setSeoData] = useState<SEOData | null>(null);
   const [isEditingSEO, setIsEditingSEO] = useState(false);
-  const [seoFormData, setSeoFormData] = useState<SEOData>({
-    meta_title: "",
-    meta_description: "",
-    meta_keywords: "",
-    h1: "",
-    h2: "",
-    "content-main": ""
-  });
+  const [seoFormData, setSeoFormData] = useState<SEOData>({});
 
   // Create file states
   const [showCreateFile, setShowCreateFile] = useState(false);
@@ -107,16 +95,6 @@ export default function RepositoryPage() {
   const [newFileContent, setNewFileContent] = useState("");
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [createFileError, setCreateFileError] = useState<string | null>(null);
-  const [showCreateFileMenu, setShowCreateFileMenu] = useState(false);
-  const [createFileType, setCreateFileType] = useState<"custom" | "seo" | "readme">("custom");
-  const [seoFormForCreate, setSeoFormForCreate] = useState<SEOData>({
-    meta_title: "",
-    meta_description: "",
-    meta_keywords: "",
-    h1: "",
-    h2: "",
-    "content-main": ""
-  });
 
   // Format dates in a more readable format
   const formatDate = (dateString: string | null) => {
@@ -129,7 +107,7 @@ export default function RepositoryPage() {
     });
   };
 
-  // Add these interfaces to your file
+    // Add these interfaces to your file
 interface Collaborator {
   id: number;
   login: string;
@@ -279,11 +257,7 @@ const customRoles: CustomRole[] = [
 // Update the main useEffect for authentication and time
 useEffect(() => {
   if (status === "unauthenticated") {
-    // Use absolute URL for production
-    const baseUrl = process.env.NODE_ENV === "production" 
-      ? "https://metasynccms.vercel.app" 
-      : "";
-    router.push(`${baseUrl}/signin`);
+    router.push("/signin");
     return;
   }
 
@@ -332,8 +306,7 @@ useEffect(() => {
         `https://api.github.com/repos/${owner}/${repo}/collaborators/${username}`,
         {
           method: "PUT",
-          headers:
-           {
+          headers: {
             Authorization: `Bearer ${session.accessToken}`,
             "Content-Type": "application/json",
             "User-Agent": "MetaSync-App"
@@ -763,39 +736,9 @@ const handleSaveSEOContent = async () => {
 
   // Function to create a new file
   const handleCreateFile = async () => {
-    if (!session?.accessToken) return;
-    
-    let fileName = "";
-    let fileContent = "";
-    
-    // Determine file name and content based on type
-    if (createFileType === "seo") {
-      // Validate SEO form
-      if (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()) {
-        setCreateFileError("Please fill in at least the title and description fields");
-        return;
-      }
-      
-      // Use custom filename if provided, otherwise default to seo.json
-      fileName = newFileName.trim() || "seo.json";
-      
-      // Ensure .json extension for SEO files
-      if (!fileName.endsWith('.json')) {
-        fileName += '.json';
-      }
-      
-      fileContent = JSON.stringify(seoFormForCreate, null, 2);
-    } else if (createFileType === "readme") {
-      fileName = "README.md";
-      fileContent = newFileContent;
-    } else {
-      // Custom file
-      if (!newFileName.trim()) {
-        setCreateFileError("Please enter a valid file name");
-        return;
-      }
-      fileName = newFileName.trim();
-      fileContent = newFileContent;
+    if (!session?.accessToken || !newFileName.trim()) {
+      setCreateFileError("Please enter a valid file name");
+      return;
     }
     
     setIsCreatingFile(true);
@@ -803,7 +746,7 @@ const handleSaveSEOContent = async () => {
     
     try {
       // Construct the full file path
-      const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
+      const filePath = currentPath ? `${currentPath}/${newFileName.trim()}` : newFileName.trim();
       
       // Check if file already exists
       try {
@@ -837,8 +780,8 @@ const handleSaveSEOContent = async () => {
             "User-Agent": "MetaSync-App"
           },
           body: JSON.stringify({
-            message: `Create ${fileName} via MetaSync`,
-            content: btoa(fileContent), // base64 encode the content
+            message: `Create ${newFileName.trim()} via MetaSync`,
+            content: btoa(newFileContent), // base64 encode the content
             branch: repository?.default_branch || "main"
           })
         }
@@ -850,7 +793,9 @@ const handleSaveSEOContent = async () => {
       }
       
       // File created successfully
-      handleCancelCreateFile();
+      setShowCreateFile(false);
+      setNewFileName("");
+      setNewFileContent("");
       
       // Refresh the file list
       if (session.accessToken) {
@@ -869,66 +814,40 @@ const handleSaveSEOContent = async () => {
   // Function to cancel file creation
   const handleCancelCreateFile = () => {
     setShowCreateFile(false);
-    setShowCreateFileMenu(false);
     setNewFileName("");
     setNewFileContent("");
     setCreateFileError(null);
-    setCreateFileType("custom");
-    setSeoFormForCreate({
-      meta_title: "",
-      meta_description: "",
-      meta_keywords: "",
-      h1: "",
-      h2: "",
-      "content-main": ""
-    });
-  };
-
-  // Handle file preset selection
-  const handleFilePresetSelect = (type: "custom" | "seo" | "readme") => {
-    setCreateFileType(type);
-    setShowCreateFileMenu(false);
-    
-    if (type === "readme") {
-      setNewFileName("README.md");
-      setNewFileContent(`# ${repository?.name || "Project Name"}
-
-## Description
-Brief description of your project.
-
-## Installation
-\`\`\`bash
-# Installation commands
-\`\`\`
-
-## Usage
-How to use your project.
-
-## Contributing
-Guidelines for contributing to your project.
-
-## License
-Your project license.
-`);
-    }
-    
-    setShowCreateFile(true);
   };
 
   const getFileIcon = (file: FileItem) => {
-    // Example implementation, replace with your actual icon logic
     if (file.type === "dir") {
       return (
-        <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.28a2 2 0 011.42.59l1.42 1.42A2 2 0 0012.72 7H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-        </svg>
-      );
-    } else {
-      return (
         <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7v10a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2H9a2 2 0 00-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
       );
+    }
+    
+    // File icons based on extension
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    
+    switch(ext) {
+      case 'md':
+        return <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>;
+      case 'json':
+      case 'js':
+      case 'ts':
+      case 'jsx':
+      case 'tsx':
+        return <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>;
+      default:
+        return <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>;
     }
   };
 
@@ -948,13 +867,12 @@ const isSEOFile = (filename: string, path: string) => {
   return filename.endsWith(".seo.json") || path.endsWith(".seo.json");
 };
 
-  // Add this function to parse and validate SEO JSON
+// Update the SEO content parser to accept any JSON structure
 const parseSEOContent = (content: string): SEOData | null => {
   try {
     const parsed = JSON.parse(content);
-    // Validate that it has the expected SEO structure
-    if (parsed && typeof parsed === 'object' && 
-        'meta_title' in parsed && 'meta_description' in parsed) {
+    // Accept any valid JSON object
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed as SEOData;
     }
     return null;
@@ -963,6 +881,116 @@ const parseSEOContent = (content: string): SEOData | null => {
   }
 };
 
+  // Add helper functions for dynamic form rendering
+  const getFieldType = (key: string, value: any): 'text' | 'textarea' | 'number' | 'boolean' => {
+    if (typeof value === 'boolean') return 'boolean';
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'string') {
+      if (key.includes('description') || key.includes('content') || value.length > 100) {
+        return 'textarea';
+      }
+    }
+    return 'text';
+  };
+
+  const renderFormField = (key: string, value: any, onChange: (key: string, newValue: any) => void) => {
+    const fieldType = getFieldType(key, value);
+    const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+    switch (fieldType) {
+      case 'boolean':
+        return (
+          <div key={key}>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              {displayName}
+            </label>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={Boolean(value)}
+                onChange={(e) => onChange(key, e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-neutral-800 border-neutral-700 rounded focus:ring-purple-500 focus:ring-2"
+              />
+              <span className="ml-2 text-sm text-neutral-400">
+                {Boolean(value) ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+        );
+      
+      case 'number':
+        return (
+          <div key={key}>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              {displayName}
+            </label>
+            <input
+              type="number"
+              value={String(value || '')}
+              onChange={(e) => onChange(key, parseFloat(e.target.value) || 0)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            />
+          </div>
+        );
+      
+      case 'textarea':
+        return (
+          <div key={key}>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              {displayName}
+            </label>
+            <textarea
+              value={String(value || '')}
+              onChange={(e) => onChange(key, e.target.value)}
+              rows={3}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+              placeholder={`Enter ${displayName.toLowerCase()}`}
+            />
+          </div>
+        );
+      
+      default:
+        return (
+          <div key={key}>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              {displayName}
+            </label>
+            <input
+              type="text"
+              value={String(value || '')}
+              onChange={(e) => onChange(key, e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              placeholder={`Enter ${displayName.toLowerCase()}`}
+            />
+          </div>
+        );
+    }
+  };
+
+  const handleSeoFormChange = (key: string, value: any) => {
+    setSeoFormData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const addNewField = () => {
+    const fieldName = prompt('Enter field name:');
+    if (fieldName && fieldName.trim()) {
+      const cleanFieldName = fieldName.trim().replace(/\s+/g, '_').toLowerCase();
+      handleSeoFormChange(cleanFieldName, '');
+    }
+  };
+
+  const removeField = (key: string) => {
+    if (confirm(`Remove field "${key}"?`)) {
+      const newData = { ...seoFormData };
+      delete newData[key];
+      setSeoFormData(newData);
+    }
+  };
+
+  // Fix the loading state to use isLoading from the component
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
@@ -1197,130 +1225,61 @@ const parseSEOContent = (content: string): SEOData | null => {
                 
                 <div className="p-6">
                   {seoData && isEditingSEO ? (
-                    /* SEO Form Editor */
+                    /* Dynamic SEO Form Editor */
                     <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Page Title (meta_title)
-                        </label>
-                        <input
-                          type="text"
-                          value={seoFormData.meta_title}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_title: e.target.value }))}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="Enter the page title for search engines"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results and browser tabs</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Edit SEO Content</h3>
+                        <button
+                          onClick={addNewField}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Field
+                        </button>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Meta Description
-                        </label>
-                        <textarea
-                          value={seoFormData.meta_description}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_description: e.target.value }))}
-                          rows={3}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-                          placeholder="Enter a brief description of the page content"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results below the title (150-160 characters recommended)</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Keywords (meta_keywords)
-                        </label>
-                        <input
-                          type="text"
-                          value={seoFormData.meta_keywords}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_keywords: e.target.value }))}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="keyword1, keyword2, keyword3"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">Comma-separated keywords that describe your page content</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Main Heading (H1)
-                        </label>
-                        <input
-                          type="text"
-                          value={seoFormData.h1}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h1: e.target.value }))}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="Enter the main heading for your page"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">The primary heading that visitors will see</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Secondary Heading (H2)
-                        </label>
-                        <input
-                          type="text"
-                          value={seoFormData.h2}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h2: e.target.value }))}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="Enter the secondary heading"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">A supporting headline or subtitle</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">
-                          Main Content
-                        </label>
-                        <textarea
-                          value={seoFormData["content-main"]}
-                          onChange={(e) => setSeoFormData(prev => ({ ...prev, "content-main": e.target.value }))}
-                          rows={4}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-                          placeholder="Enter the main content or description for your page"
-                        />
-                        <p className="text-xs text-neutral-400 mt-1">The main paragraph or content that describes your page</p>
-                      </div>
+                      
+                      {Object.entries(seoFormData).map(([key, value]) => (
+                        <div key={key} className="relative">
+                          {renderFormField(key, value, handleSeoFormChange)}
+                          <button
+                            onClick={() => removeField(key)}
+                            className="absolute top-0 right-0 p-1 text-neutral-400 hover:text-red-400"
+                            title={`Remove ${key} field`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {Object.keys(seoFormData).length === 0 && (
+                        <div className="text-center py-8 text-neutral-400">
+                          <p>No fields found. Click "Add Field" to get started.</p>
+                        </div>
+                      )}
                     </div>
                   ) : seoData ? (
-                    /* SEO Content Preview */
+                    /* Dynamic SEO Content Preview */
                     <div className="space-y-6">
                       <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
                         <h3 className="text-lg font-medium text-white mb-2">SEO Content Preview</h3>
                         <p className="text-neutral-300 text-sm">This file contains SEO metadata for your website. Use the "Edit SEO Content" button to make changes safely.</p>
                       </div>
                       
-                      <div className="grid gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Page Title</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_title}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Meta Description</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_description}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Keywords</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_keywords}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Heading (H1)</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h1}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Secondary Heading (H2)</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h2}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Content</label>
-                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData["content-main"]}</div>
-                        </div>
+                      <div className="grid gap-4">
+                        {Object.entries(seoData).map(([key, value]) => (
+                          <div key={key}>
+                            <label className="block text-sm font-medium text-purple-300 mb-1">
+                              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </label>
+                            <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">
+                              {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value || '')}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ) : isEditMode ? (
@@ -1367,66 +1326,15 @@ const parseSEOContent = (content: string): SEOData | null => {
                     </div>
                     
                     {/* Create File Button */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowCreateFileMenu(!showCreateFileMenu)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Create File
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      
-                      {/* Dropdown Menu */}
-                      {showCreateFileMenu && (
-                        <div className="absolute right-0 mt-2 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
-                          <div className="py-1">
-                            <button
-                              onClick={() => handleFilePresetSelect("custom")}
-                              className="w-full text-left px-4 py-2 text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">Custom File</div>
-                                <div className="text-xs text-neutral-400">Create any file type</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => handleFilePresetSelect("seo")}
-                              className="w-full text-left px-4 py-2 text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">SEO File</div>
-                                <div className="text-xs text-neutral-400">Create seo.json with form editor</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => handleFilePresetSelect("readme")}
-                              className="w-full text-left px-4 py-2 text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">README.md</div>
-                                <div className="text-xs text-neutral-400">Create project documentation</div>
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => setShowCreateFile(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create File
+                    </button>
                   </div>
                 </div>
                 
@@ -1471,11 +1379,7 @@ const parseSEOContent = (content: string): SEOData | null => {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between border-b border-neutral-800 p-4">
-              <h2 className="text-xl font-semibold text-white">
-                {createFileType === "seo" ? "Create SEO File" : 
-                 createFileType === "readme" ? "Create README.md" : 
-                 "Create New File"}
-              </h2>
+              <h2 className="text-xl font-semibold text-white">Create New File</h2>
               <button 
                 onClick={handleCancelCreateFile}
                 className="text-neutral-400 hover:text-white"
@@ -1487,149 +1391,34 @@ const parseSEOContent = (content: string): SEOData | null => {
             </div>
             
             <div className="p-6 space-y-4">
-              {createFileType === "seo" ? (
-                /* SEO File Creation Form */
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
-                    <h3 className="text-lg font-medium text-white mb-2">SEO Configuration</h3>
-                    <p className="text-neutral-300 text-sm">Fill out the SEO metadata for your website. This will create a JSON file in the current directory.</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      File Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
-                      placeholder="seo.json"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Leave empty for default 'seo.json'. Extension '.json' will be added automatically.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Page Title (meta_title) *
-                    </label>
-                    <input
-                      type="text"
-                      value={seoFormForCreate.meta_title}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, meta_title: e.target.value }))
-                      }
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      placeholder="Enter the page title for search engines"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">This appears in search engine results and browser tabs</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Meta Description *
-                    </label>
-                    <textarea
-                      value={seoFormForCreate.meta_description}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, meta_description: e.target.value }))}
-                      rows={3}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-                      placeholder="Enter a brief description of the page content"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">This appears in search engine results below the title (150-160 characters recommended)</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Keywords (meta_keywords)
-                    </label>
-                    <input
-                      type="text"
-                      value={seoFormForCreate.meta_keywords}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, meta_keywords: e.target.value }))}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      placeholder="keyword1, keyword2, keyword3"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">Comma-separated keywords that describe your page content</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Main Heading (H1)
-                    </label>
-                    <input
-                      type="text"
-                      value={seoFormForCreate.h1}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, h1: e.target.value }))}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      placeholder="Enter the main heading for your page"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">The primary heading that visitors will see</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Secondary Heading (H2)
-                    </label>
-                    <input
-                      type="text"
-                      value={seoFormForCreate.h2}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, h2: e.target.value }))}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      placeholder="Enter the secondary heading"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">A supporting headline or subtitle</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Main Content
-                    </label>
-                    <textarea
-                      value={seoFormForCreate["content-main"]}
-                      onChange={(e) => setSeoFormForCreate(prev => ({ ...prev, "content-main": e.target.value }))}
-                      rows={4}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-                      placeholder="Enter the main content or description for your page"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">The main paragraph or content that describes your page</p>
-                  </div>
-                </div>
-              ) : (
-                /* Regular File Creation */
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      File Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
-                      placeholder="example.txt"
-                      disabled={createFileType === "readme"}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">
-                      File will be created in: {currentPath ? `${owner}/${repo}/${currentPath}/` : `${owner}/${repo}/`}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      File Content
-                    </label>
-                    <textarea
-                      value={newFileContent}
-                      onChange={(e) => setNewFileContent(e.target.value)}
-                      placeholder="Enter your file content here..."
-                      rows={12}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-green-500 font-mono text-sm resize-y"
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  File Name
+                </label>
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  placeholder="example.txt"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
+                <p className="text-xs text-neutral-400 mt-1">
+                  File will be created in: {currentPath ? `${owner}/${repo}/${currentPath}/` : `${owner}/${repo}/`}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  File Content
+                </label>
+                <textarea
+                  value={newFileContent}
+                  onChange={(e) => setNewFileContent(e.target.value)}
+                  placeholder="Enter your file content here..."
+                  rows={12}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-green-500 font-mono text-sm resize-y"
+                />
+              </div>
               
               {createFileError && (
                 <div className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-3 rounded">
@@ -1646,17 +1435,14 @@ const parseSEOContent = (content: string): SEOData | null => {
                 </button>
                 <button
                   onClick={handleCreateFile}
-                  disabled={isCreatingFile || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))}
+                  disabled={isCreatingFile || !newFileName.trim()}
                   className={`px-4 py-2 rounded-lg font-medium transition ${
-                    isCreatingFile || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))
+                    isCreatingFile || !newFileName.trim()
                       ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700 text-white"
                   }`}
                 >
-                  {isCreatingFile ? "Creating..." : 
-                   createFileType === "seo" ? "Create SEO File" :
-                   createFileType === "readme" ? "Create README" :
-                   "Create File"}
+                  {isCreatingFile ? "Creating..." : "Create File"}
                 </button>
               </div>
             </div>
