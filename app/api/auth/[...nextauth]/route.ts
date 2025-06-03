@@ -1,56 +1,55 @@
 import NextAuth from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 
-// Remove the duplicate declare module statements since they're in next-auth.d.ts
-
-// Define GitHub profile type
-interface GitHubProfile {
-  login: string;
-  id: number;
-  avatar_url: string;
-  name: string;
-  email: string;
-  [key: string]: any;
-}
-
 const handler = NextAuth({
   providers: [
     GitHubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "read:user user:email repo",
+          scope: "repo user:email read:user",
         },
       },
     }),
   ],
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
   callbacks: {
-    async jwt({ token, account, profile }) {
-      if (account) {
+    async jwt({ token, account, user }) {
+      if (account && user) {
         token.accessToken = account.access_token;
-      }
-      if (profile) {
-        const githubProfile = profile as GitHubProfile;
-        token.login = githubProfile.login;
+        token.refreshToken = account.refresh_token;
+        token.username = user.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (token.accessToken) {
-        (session as any).accessToken = token.accessToken;
-      }
-      if (token.login) {
-        session.user.login = token.login;
+        session.accessToken = token.accessToken as string;
       }
       return session;
     },
+    async signIn({ user, account, profile }) {
+      // Allow sign in
+      return true;
+    },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/signin",
-    error: "/auth/error",
+    error: "/signin",
   },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };

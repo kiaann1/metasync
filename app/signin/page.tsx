@@ -1,28 +1,61 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 
 function SignInContent() {
-  const { status } = useSession(); // Remove 'data: session' since it's not used
+  const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-      router.push(callbackUrl);
-    }
-  }, [status, router, searchParams]);
+    // Clear any existing session data on component mount
+    if (typeof window !== "undefined") {
+      // Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
 
-  const handleGitHubSignIn = async () => {
+      // Clear any cookies related to auth (client-side cleanup)
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        if (
+          name.trim().includes("next-auth") ||
+          name.trim().includes("session")
+        ) {
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        }
+      });
+    }
+
+    // Force sign out any existing session
+    if (session && status === "authenticated") {
+      signOut({ redirect: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.push("/dashboard");
+    }
+  }, [status, session, router]);
+
+  const handleSignIn = async () => {
     setIsLoading(true);
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-      await signIn("github", { callbackUrl });
+      // First ensure we're signed out
+      await signOut({ redirect: false });
+
+      // Small delay to ensure cleanup
+      setTimeout(async () => {
+        await signIn("github", {
+          callbackUrl: "/dashboard",
+          redirect: true,
+        });
+      }, 100);
     } catch (error) {
       console.error("Sign in error:", error);
       setIsLoading(false);
@@ -65,7 +98,7 @@ function SignInContent() {
           </div>
 
           <button
-            onClick={handleGitHubSignIn}
+            onClick={handleSignIn}
             disabled={isLoading}
             className="w-full bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-md transition flex items-center justify-center gap-3"
           >
