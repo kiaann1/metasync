@@ -30,3 +30,5 @@
 	•	Provide bulk editing options where users can update certain settings across multiple repositories at once.
 
 9. add "Create File" in the repo  ✅
+
+10. In SEO File, add entry for robots.txt, and also add a tickbox for noindex the page or let it be crawled
