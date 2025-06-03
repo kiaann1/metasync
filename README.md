@@ -35,7 +35,7 @@ MetaSync provides an intuitive interface for managing your GitHub repositories, 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/metasync.git
+git clone https://github.com/kiaann1/metasync.git
 cd metasync
 ```
 
