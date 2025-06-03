@@ -32,3 +32,5 @@
 9. add "Create File" in the repo  ✅
 
 10. In SEO File, add entry for robots.txt, and also add a tickbox for noindex the page or let it be crawled
+
+11. Update SEO file detection to work with any *.seo.json files (not just seo.json) ✅

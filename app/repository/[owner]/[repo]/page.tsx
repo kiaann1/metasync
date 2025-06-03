@@ -945,10 +945,10 @@ Your project license.
 
   // Add this function to detect if file is seo.json
 const isSEOFile = (filename: string, path: string) => {
-  return filename === "seo.json" || path === "seo.json";
+  return filename.endsWith(".seo.json") || path.endsWith(".seo.json");
 };
 
-// Add this function to parse and validate SEO JSON
+  // Add this function to parse and validate SEO JSON
 const parseSEOContent = (content: string): SEOData | null => {
   try {
     const parsed = JSON.parse(content);
