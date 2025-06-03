@@ -67,7 +67,10 @@ export default function RepositoryPage() {
   const [repository, setRepository] = useState<Repository | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Enhanced error states
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<"general" | "permission" | "validation" | "network" | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [currentPath, setCurrentPath] = useState("");
   const [currentTime, setCurrentTime] = useState<string>("");
   const [fileContent, setFileContent] = useState<{ content: string; name: string; path: string } | null>(null);
@@ -104,6 +107,17 @@ export default function RepositoryPage() {
   const [createFileError, setCreateFileError] = useState<string | null>(null);
   const [showCreateFileMenu, setShowCreateFileMenu] = useState(false);
   const [createFileType, setCreateFileType] = useState<"custom" | "seo" | "readme">("custom");
+
+  // SEO creation states
+  const [showCreateSEO, setShowCreateSEO] = useState(false);
+  const [newSEOData, setNewSEOData] = useState<SEOData>({
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    h1: "",
+    h2: "",
+    "content-main": ""
+  });
 
   // Format dates in a more readable format
   const formatDate = (dateString: string | null) => {
@@ -198,6 +212,164 @@ const customRoles: CustomRole[] = [
     }
   ];
 
+// (Moved below fetchCollaborators declaration)
+
+// Fix the date formatting in the header section
+  const formatCurrentTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
+
+// Update the main useEffect for authentication and time
+useEffect(() => {
+  if (status === "unauthenticated") {
+    router.push("/signin");
+    return;
+  }
+
+  // Set current time using the proper formatting function
+  setCurrentTime(formatCurrentTime());
+
+  // Optional: Update the time every minute
+  const timer = setInterval(() => {
+    setCurrentTime(formatCurrentTime());
+  }, 60000);
+  
+  return () => clearInterval(timer);
+}, [status, router]);
+
+  // Enhanced error handling function
+  const handleError = (err: any, context: string = "") => {
+    console.error(`Error in ${context}:`, err);
+    
+    let errorMessage = "An unexpected error occurred.";
+    let type: "general" | "permission" | "validation" | "network" = "general";
+    
+    if (err instanceof Response || (err && err.status)) {
+      const status = err.status || (err instanceof Response ? err.status : 500);
+      
+      switch (status) {
+        case 401:
+          errorMessage = "Your session has expired. Please sign in again.";
+          type = "permission";
+          break;
+        case 403:
+          if (context.includes("collaborator")) {
+            errorMessage = "You don't have permission to manage collaborators for this repository. Only repository owners and admins can invite or remove collaborators.";
+          } else if (context.includes("file")) {
+            errorMessage = "You don't have permission to edit files in this repository. Contact the repository owner to request write access.";
+          } else {
+            errorMessage = "You don't have permission to perform this action. Contact the repository owner for access.";
+          }
+          type = "permission";
+          break;
+        case 404:
+          if (context.includes("user")) {
+            errorMessage = "GitHub user not found. Please verify the username is correct and the user exists on GitHub.";
+          } else if (context.includes("repository")) {
+            errorMessage = "Repository not found. It may be private, deleted, or the URL is incorrect.";
+          } else if (context.includes("file")) {
+            errorMessage = "File not found. It may have been deleted or moved.";
+          } else {
+            errorMessage = "The requested resource was not found.";
+          }
+          type = "general";
+          break;
+        case 409:
+          errorMessage = "A conflict occurred. The file may have been modified by someone else. Please refresh and try again.";
+          type = "validation";
+          break;
+        case 422:
+          errorMessage = "Invalid data provided. Please check your input and try again.";
+          type = "validation";
+          break;
+        case 500:
+        case 502:
+        case 503:
+          errorMessage = "GitHub services are temporarily unavailable. Please try again in a few minutes.";
+          type = "network";
+          break;
+        default:
+          errorMessage = `Request failed with status ${status}. Please try again.`;
+          type = "general";
+      }
+    } else if (err && err.message) {
+      errorMessage = err.message;
+      
+      // Detect specific error types from message content
+      if (err.message.includes("permission") || err.message.includes("access")) {
+        type = "permission";
+      } else if (err.message.includes("validation") || err.message.includes("invalid")) {
+        type = "validation";
+      } else if (err.message.includes("network") || err.message.includes("fetch")) {
+        type = "network";
+      }
+    }
+    
+    setError(errorMessage);
+    setErrorType(type);
+  };
+
+  // Clear errors function
+  const clearError = () => {
+    setError(null);
+    setErrorType(null);
+    setValidationErrors({});
+  };
+
+  // Validation functions
+  const validateFileName = (filename: string): string | null => {
+    if (!filename.trim()) {
+      return "File name is required";
+    }
+    if (filename.includes('/') || filename.includes('\\')) {
+      return "File name cannot contain forward slashes or backslashes";
+    }
+    if (filename.startsWith('.') && filename !== '.gitignore' && !filename.endsWith('.seo.json')) {
+      return "Hidden files (starting with .) are not recommended";
+    }
+    if (filename.length > 255) {
+      return "File name is too long (maximum 255 characters)";
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+      return "File name contains invalid characters. Use only letters, numbers, dots, hyphens, and underscores";
+    }
+    return null;
+  };
+
+  const validateSEOJson = (content: string): string | null => {
+    try {
+      const parsed = JSON.parse(content);
+      if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return "SEO files must contain a JSON object";
+      }
+      return null;
+    } catch (e) {
+      return "Invalid JSON format. Please check your syntax";
+    }
+  };
+
+  const validateGitHubUsername = (username: string): string | null => {
+    if (!username.trim()) {
+      return "Username is required";
+    }
+    if (username.includes('@')) {
+      return "Please enter a GitHub username, not an email address";
+    }
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]){0,38}$/.test(username)) {
+      return "Invalid GitHub username format";
+    }
+    return null;
+  };
+
+  // Fetch collaborators with improved error handling
   const fetchCollaborators = useCallback(async () => {
     if (!session?.accessToken) return;
 
@@ -236,32 +408,18 @@ const customRoles: CustomRole[] = [
       
       setCollaborators(mappedCollaborators);
     } catch (err) {
-      console.error("Error fetching collaborators:", err);
-      setError("Failed to load collaborators. Please check your permissions.");
+      handleError(err, "fetch collaborators");
     } finally {
       setIsLoading(false);
     }
   }, [session, owner, repo]); // Add dependencies to useCallback
 
-// Add this effect to load collaborators when settings are opened
- useEffect(() => {
+  // Add this effect to load collaborators when settings are opened
+  useEffect(() => {
     if (showSettings && activeTab === "collaborators") {
       fetchCollaborators();
     }
   }, [showSettings, activeTab, fetchCollaborators]);
-
-// Fix the date formatting in the header section
-  const formatCurrentTime = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  };
 
 // Update the main useEffect for authentication and time
 useEffect(() => {
@@ -284,33 +442,26 @@ useEffect(() => {
   const inviteCollaborator = async () => {
     if (!session?.accessToken || !inviteEmail) return;
     
-    setIsInviting(true);
+    // Clear previous errors
+    clearError();
     setInviteSuccess(null);
     setInviteError(null);
     
+    // Validate username
+    const usernameError = validateGitHubUsername(inviteEmail);
+    if (usernameError) {
+      setInviteError(usernameError);
+      return;
+    }
+    
+    setIsInviting(true);
+    
     try {
-      // First, we need to find the GitHub role that corresponds to our custom role
       const role = customRoles.find(r => r.id === inviteRole);
       if (!role) throw new Error("Invalid role selected");
       
-      // Check if input looks like an email or username
-      const isEmail = inviteEmail.includes('@');
-      const username = inviteEmail; // Changed from 'let' to 'const' as it's never reassigned
+      const username = inviteEmail.trim();
       
-      // If it's an email, try to find the GitHub username first
-      if (isEmail) {
-        try {
-          // This won't work directly with emails, so we'll provide a helpful error
-          setInviteError("GitHub requires a username, not an email address. Please enter a GitHub username instead.");
-          setIsInviting(false);
-          return;
-        } catch (err) {
-          console.error("Error finding GitHub user by email:", err);
-          throw new Error("Couldn't find a GitHub user with this email. Please use their GitHub username instead.");
-        }
-      }
-    
-    // 1. Add the collaborator via GitHub API
       const addResponse = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/collaborators/${username}`,
         {
@@ -327,68 +478,16 @@ useEffect(() => {
       );
       
       if (!addResponse.ok) {
-        const errorData = await addResponse.json();
-        
-        // Provide more helpful error messages based on status codes
-        if (addResponse.status === 404) {
-          throw new Error(`GitHub user "${username}" not found. Please verify the username is correct.`);
-        } else if (addResponse.status === 403) {
-          throw new Error("You don't have permission to add collaborators to this repository.");
-        } else {
-          throw new Error(`Failed to add collaborator: ${errorData.message || addResponse.statusText}`);
-        }
-      }
-
-      try {
-        const invitationsResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/invitations`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-              "User-Agent": "MetaSync-App"
-            }
-          }
-        );
-        
-        if (invitationsResponse.ok) {
-          const invitations = await invitationsResponse.json();
-          console.log("Pending invitations:", invitations);
-        }
-      } catch (e) {
-        console.error("Error fetching invitations (non-critical):", e);
+        handleError(addResponse, "collaborator invitation");
+        return;
       }
       
-      // 3. Send email notification if email is provided
-      if (isEmail) {
-        try {
-          await fetch('/api/send-invitation', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: inviteEmail,
-              repoOwner: owner,
-              repoName: repo,
-              role: role.name,
-              invitedBy: session.user?.name || "A user",
-              invitationUrl: `https://github.com/${owner}/${repo}/invitations`
-            }),
-          });
-        } catch (e) {
-          console.error("Error sending email notification (non-critical):", e);
-        }
-      }
-      
-      setInviteSuccess(`Invitation sent to GitHub user "${username}" with ${role.name} role`);
+      setInviteSuccess(`Successfully invited ${username} with ${role.name} role`);
       setInviteEmail("");
-      // Refresh the collaborators list
       fetchCollaborators();
       
-    } catch (err: Error | unknown) { // Fixed 'any' type with more specific types
-      console.error("Error inviting collaborator:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to invite collaborator";
-      setInviteError(errorMessage);
+    } catch (err) {
+      handleError(err, "collaborator invitation");
     } finally {
       setIsInviting(false);
     }
@@ -681,13 +780,21 @@ const removeCollaborator = async (username: string) => {
 const handleSaveSEOContent = async () => {
   if (!session?.accessToken || !fileContent) return;
   
+  clearError();
+  
   try {
     setIsLoading(true);
     
-    // Convert form data back to JSON
     const jsonContent = JSON.stringify(seoFormData, null, 2);
     
-    // First, get the file's SHA
+    // Validate JSON before saving
+    const validationError = validateSEOJson(jsonContent);
+    if (validationError) {
+      handleError(new Error(validationError), "SEO validation");
+      return;
+    }
+    
+    // Get current file SHA
     const fileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`, 
       {
@@ -699,12 +806,12 @@ const handleSaveSEOContent = async () => {
     );
     
     if (!fileResponse.ok) {
-      throw new Error(`Failed to get file details: ${fileResponse.status}`);
+      handleError(fileResponse, "file access");
+      return;
     }
     
     const fileData = await fileResponse.json();
     
-    // Create the update payload
     const updateResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`,
       {
@@ -723,11 +830,11 @@ const handleSaveSEOContent = async () => {
     );
     
     if (!updateResponse.ok) {
-      const errorData = await updateResponse.text();
-      throw new Error(`Failed to update file: ${updateResponse.status} - ${errorData}`);
+      handleError(updateResponse, "file update");
+      return;
     }
     
-    // Update was successful
+    // Success
     setFileContent({
       ...fileContent,
       content: jsonContent
@@ -736,8 +843,7 @@ const handleSaveSEOContent = async () => {
     setIsEditingSEO(false);
     
   } catch (err) {
-    console.error("Error updating SEO file:", err);
-    setError("Failed to save SEO content. Please check your permissions or file status.");
+    handleError(err, "SEO content save");
   } finally {
     setIsLoading(false);
   }
@@ -745,16 +851,31 @@ const handleSaveSEOContent = async () => {
 
   // Function to create a new file
   const handleCreateFile = async () => {
-    if (!session?.accessToken || !newFileName.trim()) {
-      setCreateFileError("Please enter a valid file name");
+    if (!session?.accessToken) return;
+    
+    // Clear previous errors
+    setCreateFileError(null);
+    setValidationErrors({});
+    
+    // Validate file name
+    const fileNameError = validateFileName(newFileName);
+    if (fileNameError) {
+      setCreateFileError(fileNameError);
       return;
     }
     
+    // Validate SEO JSON if it's an SEO file
+    if (newFileName.endsWith('.seo.json')) {
+      const jsonError = validateSEOJson(newFileContent);
+      if (jsonError) {
+        setCreateFileError(`SEO file validation error: ${jsonError}`);
+        return;
+      }
+    }
+    
     setIsCreatingFile(true);
-    setCreateFileError(null);
     
     try {
-      // Construct the full file path
       const filePath = currentPath ? `${currentPath}/${newFileName.trim()}` : newFileName.trim();
       
       // Check if file already exists
@@ -770,15 +891,13 @@ const handleSaveSEOContent = async () => {
         );
         
         if (existingFileResponse.ok) {
-          setCreateFileError("A file with this name already exists in this location");
-          setIsCreatingFile(false);
+          setCreateFileError(`A file named "${newFileName}" already exists in this location. Please choose a different name.`);
           return;
         }
       } catch (err) {
         // File doesn't exist, which is what we want
       }
       
-      // Create the file
       const createResponse = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
         {
@@ -790,31 +909,28 @@ const handleSaveSEOContent = async () => {
           },
           body: JSON.stringify({
             message: `Create ${newFileName.trim()} via MetaSync`,
-            content: btoa(newFileContent), // base64 encode the content
+            content: btoa(newFileContent),
             branch: repository?.default_branch || "main"
           })
         }
       );
       
       if (!createResponse.ok) {
-        const errorData = await createResponse.json();
-        throw new Error(`Failed to create file: ${errorData.message || createResponse.statusText}`);
+        handleError(createResponse, "file creation");
+        return;
       }
       
-      // File created successfully
+      // Success
       setShowCreateFile(false);
       setNewFileName("");
       setNewFileContent("");
       
-      // Refresh the file list
       if (session.accessToken) {
         await fetchFiles(owner, repo, currentPath, session.accessToken);
       }
       
     } catch (err) {
-      console.error("Error creating file:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to create file";
-      setCreateFileError(errorMessage);
+      handleError(err, "file creation");
     } finally {
       setIsCreatingFile(false);
     }
@@ -826,15 +942,9 @@ const handleSaveSEOContent = async () => {
     setShowCreateFileMenu(false);
     
     if (type === "seo") {
-      setNewFileName("seo.json");
-      setNewFileContent(JSON.stringify({
-        meta_title: "",
-        meta_description: "",
-        meta_keywords: "",
-        h1: "",
-        h2: "",
-        "content-main": ""
-      }, null, 2));
+      // Show the specialized SEO creation modal instead
+      setShowCreateSEO(true);
+      return;
     } else if (type === "readme") {
       setNewFileName("README.md");
       setNewFileContent(`# ${repository?.name || "Project Name"}
@@ -861,240 +971,300 @@ Your project license.
     setShowCreateFile(true);
   };
 
-  // Function to cancel file creation
-  const handleCancelCreateFile = () => {
-    setShowCreateFile(false);
-    setShowCreateFileMenu(false);
-    setNewFileName("");
-    setNewFileContent("");
+  // Function to handle SEO file creation
+  const handleCreateSEOFile = async () => {
+    if (!session?.accessToken) return;
+    
+    // Clear previous errors
     setCreateFileError(null);
-    setCreateFileType("custom");
+    
+    // Validate SEO file name
+    const fileName = newFileName || "seo.json";
+    const fileNameError = validateFileName(fileName);
+    if (fileNameError) {
+      setCreateFileError(fileNameError);
+      return;
+    }
+    
+    // Ensure it ends with .seo.json
+    const finalFileName = fileName.endsWith('.seo.json') ? fileName : 
+                         fileName.endsWith('.json') ? fileName.replace('.json', '.seo.json') :
+                         `${fileName}.seo.json`;
+    
+    setIsCreatingFile(true);
+    
+    try {
+      const filePath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
+      
+      // Check if file already exists
+      try {
+        const existingFileResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.accessToken}`,
+              "User-Agent": "MetaSync-App"
+            }
+          }
+        );
+        
+        if (existingFileResponse.ok) {
+          setCreateFileError(`A file named "${finalFileName}" already exists in this location. Please choose a different name.`);
+          return;
+        }
+      } catch (err) {
+        // File doesn't exist, which is what we want
+      }
+      
+      // Create JSON content from form data
+      const jsonContent = JSON.stringify(newSEOData, null, 2);
+      
+      const createResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "MetaSync-App"
+          },
+          body: JSON.stringify({
+            message: `Create ${finalFileName} via MetaSync`,
+            content: btoa(jsonContent),
+            branch: repository?.default_branch || "main"
+          })
+        }
+      );
+      
+      if (!createResponse.ok) {
+        handleError(createResponse, "SEO file creation");
+        return;
+      }
+      
+      // Success
+      setShowCreateSEO(false);
+      setNewFileName("");
+      setNewSEOData({
+        meta_title: "",
+        meta_description: "",
+        meta_keywords: "",
+        h1: "",
+        h2: "",
+        "content-main": ""
+      });
+      
+      if (session.accessToken) {
+        await fetchFiles(owner, repo, currentPath, session.accessToken);
+      }
+      
+    } catch (err) {
+      handleError(err, "SEO file creation");
+    } finally {
+      setIsCreatingFile(false);
+    }
   };
-  const getFileIcon = (file: FileItem) => {
-    if (file.type === "dir") {
+
+  // Function to cancel SEO file creation
+  const handleCancelCreateSEO = () => {
+    setShowCreateSEO(false);
+    setNewFileName("");
+    setNewSEOData({
+      meta_title: "",
+      meta_description: "",
+      meta_keywords: "",
+      h1: "",
+      h2: "",
+      "content-main": ""
+    });
+    setCreateFileError(null);
+  };
+
+  // Format dates in a more readable format
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Unknown date";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  // Check if a file is a SEO file based on name or path
+  const isSEOFile = (filename: string, path: string) => {
+    return filename.endsWith(".seo.json") || path.endsWith(".seo.json");
+  };
+
+  // Parse SEO content from a file
+  const parseSEOContent = (content: string): SEOData | null => {
+    try {
+      const parsed = JSON.parse(content);
+      // Only validate that it's a valid JSON object for .seo.json files
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as SEOData;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Render SEO form fields dynamically
+  const renderSEOFormField = (key: string, value: any, path: string = "") => {
+    const fullKey = path ? `${path}.${key}` : key;
+    
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Nested object
       return (
-        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-        </svg>
+        <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-purple-300 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </h4>
+          <div className="space-y-3 ml-4">
+            {Object.entries(value).map(([nestedKey, nestedValue]) => 
+              renderSEOFormField(nestedKey, nestedValue, fullKey)
+            )}
+          </div>
+        </div>
+      );
+    } else if (Array.isArray(value)) {
+      // Array handling
+      return (
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
+          <textarea
+            value={Array.isArray(value) ? value.join(', ') : value}
+            onChange={(e) => updateSEOFormData(fullKey, e.target.value.split(', ').filter(Boolean))}
+            rows={2}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+            placeholder="Enter comma-separated values"
+          />
+          <p className="text-xs text-neutral-400 mt-1">Comma-separated values for array</p>
+        </div>
+      );
+    } else if (typeof value === 'string' && value.length > 50) {
+      // Long text - use textarea
+      return (
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
+          <textarea
+            value={value}
+            onChange={(e) => updateSEOFormData(fullKey, e.target.value)}
+            rows={3}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+            placeholder={`Enter ${key.replace(/_/g, ' ')}`}
+          />
+          <p className="text-xs text-neutral-400 mt-1">
+            {getSEOFieldDescription(key)}
+          </p>
+        </div>
+      );
+    } else {
+      // Short text, number, boolean - use input
+      return (
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
+          <input
+            type={typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text'}
+            value={typeof value === 'boolean' ? undefined : value}
+            checked={typeof value === 'boolean' ? value : undefined}
+            onChange={(e) => {
+              let newValue: any = e.target.value;
+              if (typeof value === 'number') newValue = Number(e.target.value);
+              if (typeof value === 'boolean') newValue = e.target.checked;
+              updateSEOFormData(fullKey, newValue);
+            }}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            placeholder={`Enter ${key.replace(/_/g, ' ')}`}
+          />
+          <p className="text-xs text-neutral-400 mt-1">
+            {getSEOFieldDescription(key)}
+          </p>
+        </div>
       );
     }
-    
-    // File icons based on extension
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    
-    // Check for SEO files first
-    if (isSEOFile(file.name, file.path)) {
-      return <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      </svg>;
-    }
-    
-    switch(ext) {
-      case 'md':
-        return <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>;
-      case 'json':
-      case 'js':
-      case 'ts':
-      case 'jsx':
-      case 'tsx':
-        return <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>;
-      default:
-        return <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>;
-    }
   };
 
-  // Determine if a file is likely text-based by extension
-  const isTextFile = (filename: string) => {
-    const textExtensions = [
-      'txt', 'md', 'js', 'jsx', 'ts', 'tsx', 'json', 'html', 'css', 'scss',
-      'yml', 'yaml', 'xml', 'svg', 'py', 'rb', 'php', 'java', 'c', 'cpp', 'h',
-      'go', 'rs', 'sh', 'bat', 'ps1', 'config', 'conf', 'ini', 'env', 'gitignore'
-    ];
-    const ext = filename.split('.').pop()?.toLowerCase() || '';
-    return textExtensions.includes(ext);
-  };
-
-  // Add this function to detect if file is seo.json
-const isSEOFile = (filename: string, path: string) => {
-  return filename.endsWith(".seo.json") || path.endsWith(".seo.json");
-};
-
-// Add this function to parse and validate SEO JSON
-const parseSEOContent = (content: string): SEOData | null => {
-  try {
-    const parsed = JSON.parse(content);
-    // Only validate that it's a valid JSON object for .seo.json files
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as SEOData;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-// Add function to render dynamic form fields
-const renderSEOFormField = (key: string, value: any, path: string = "") => {
-  const fullKey = path ? `${path}.${key}` : key;
-  
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    // Nested object
-    return (
-      <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-purple-300 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </h4>
-        <div className="space-y-3 ml-4">
-          {Object.entries(value).map(([nestedKey, nestedValue]) => 
-            renderSEOFormField(nestedKey, nestedValue, fullKey)
-          )}
-        </div>
-      </div>
-    );
-  } else if (Array.isArray(value)) {
-    // Array handling
-    return (
-      <div key={fullKey}>
-        <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </label>
-        <textarea
-          value={Array.isArray(value) ? value.join(', ') : value}
-          onChange={(e) => updateSEOFormData(fullKey, e.target.value.split(', ').filter(Boolean))}
-          rows={2}
-          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-          placeholder="Enter comma-separated values"
-        />
-        <p className="text-xs text-neutral-400 mt-1">Comma-separated values for array</p>
-      </div>
-    );
-  } else if (typeof value === 'string' && value.length > 50) {
-    // Long text - use textarea
-    return (
-      <div key={fullKey}>
-        <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </label>
-        <textarea
-          value={value}
-          onChange={(e) => updateSEOFormData(fullKey, e.target.value)}
-          rows={3}
-          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-          placeholder={`Enter ${key.replace(/_/g, ' ')}`}
-        />
-        <p className="text-xs text-neutral-400 mt-1">
-          {getSEOFieldDescription(key)}
-        </p>
-      </div>
-    );
-  } else {
-    // Short text, number, boolean - use input
-    return (
-      <div key={fullKey}>
-        <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </label>
-        <input
-          type={typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text'}
-          value={typeof value === 'boolean' ? undefined : value}
-          checked={typeof value === 'boolean' ? value : undefined}
-          onChange={(e) => {
-            let newValue: any = e.target.value;
-            if (typeof value === 'number') newValue = Number(e.target.value);
-            if (typeof value === 'boolean') newValue = e.target.checked;
-            updateSEOFormData(fullKey, newValue);
-          }}
-          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-          placeholder={`Enter ${key.replace(/_/g, ' ')}`}
-        />
-        <p className="text-xs text-neutral-400 mt-1">
-          {getSEOFieldDescription(key)}
-        </p>
-      </div>
-    );
-  }
-};
-
-// Helper function to update nested form data
-const updateSEOFormData = (path: string, value: any) => {
-  setSeoFormData(prev => {
-    const newData = { ...prev };
-    const keys = path.split('.');
-    let current = newData;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!(keys[i] in current)) {
-        current[keys[i]] = {};
+  // Helper function to update nested form data
+  const updateSEOFormData = (path: string, value: any) => {
+    setSeoFormData(prev => {
+      const newData = { ...prev };
+      const keys = path.split('.');
+      let current = newData;
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!(keys[i] in current)) {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
       }
-      current = current[keys[i]];
-    }
-    
-    current[keys[keys.length - 1]] = value;
-    return newData;
-  });
-};
-
-// Helper function to get field descriptions
-const getSEOFieldDescription = (key: string): string => {
-  const descriptions: { [key: string]: string } = {
-    'meta_title': 'This appears in search engine results and browser tabs',
-    'title': 'This appears in search engine results and browser tabs',
-    'meta_description': 'This appears in search engine results below the title (150-160 characters recommended)',
-    'description': 'This appears in search engine results below the title (150-160 characters recommended)',
-    'meta_keywords': 'Comma-separated keywords that describe your page content',
-    'keywords': 'Comma-separated keywords that describe your page content',
-    'h1': 'The primary heading that visitors will see',
-    'h2': 'A supporting headline or subtitle',
-    'content': 'The main paragraph or content that describes your page',
-    'url': 'The canonical URL for this page',
-    'image': 'URL to the main image for social media sharing',
-    'author': 'The author of this content',
-    'date': 'Publication or last modified date',
-    'robots': 'Instructions for search engine crawlers (e.g., index, noindex)',
-    'canonical': 'The canonical URL to prevent duplicate content issues'
+      
+      current[keys[keys.length - 1]] = value;
+      return newData;
+    });
   };
-  
-  return descriptions[key] || `Value for ${key.replace(/_/g, ' ')}`;
-};
 
-// Add function to render dynamic preview
-const renderSEOPreviewField = (key: string, value: any, path: string = ""): React.ReactNode => {
-  const fullKey = path ? `${path}.${key}` : key;
-  
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    // Nested object
-    return (
-      <div key={fullKey} className="border border-neutral-700 rounded-lg p-4">
-        <label className="block text-sm font-medium text-purple-300 mb-2 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </label>
-        <div className="space-y-3 ml-4">
-          {Object.entries(value).map(([nestedKey, nestedValue]) => 
-            renderSEOPreviewField(nestedKey, nestedValue, fullKey)
-          )}
+  // Helper function to get field descriptions
+  const getSEOFieldDescription = (key: string): string => {
+    const descriptions: { [key: string]: string } = {
+      'meta_title': 'This appears in search engine results and browser tabs',
+      'title': 'This appears in search engine results and browser tabs',
+      'meta_description': 'This appears in search engine results below the title (150-160 characters recommended)',
+      'description': 'This appears in search engine results below the title (150-160 characters recommended)',
+      'meta_keywords': 'Comma-separated keywords that describe your page content',
+      'keywords': 'Comma-separated keywords that describe your page content',
+      'h1': 'The primary heading that visitors will see',
+      'h2': 'A supporting headline or subtitle',
+      'content': 'The main paragraph or content that describes your page',
+      'url': 'The canonical URL for this page',
+      'image': 'URL to the main image for social media sharing',
+      'author': 'The author of this content',
+      'date': 'Publication or last modified date',
+      'robots': 'Instructions for search engine crawlers (e.g., index, noindex)',
+      'canonical': 'The canonical URL to prevent duplicate content issues'
+    };
+    
+    return descriptions[key] || `Value for ${key.replace(/_/g, ' ')}`;
+  };
+
+  // Add function to render dynamic preview
+  const renderSEOPreviewField = (key: string, value: any, path: string = ""): React.ReactNode => {
+    const fullKey = path ? `${path}.${key}` : key;
+    
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Nested object
+      return (
+        <div key={fullKey} className="border border-neutral-700 rounded-lg p-4">
+          <label className="block text-sm font-medium text-purple-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
+          <div className="space-y-3 ml-4">
+            {Object.entries(value).map(([nestedKey, nestedValue]) => 
+              renderSEOPreviewField(nestedKey, nestedValue, fullKey)
+            )}
+          </div>
         </div>
-      </div>
-    );
-  } else {
-    // Simple value
-    return (
-      <div key={fullKey}>
-        <label className="block text-sm font-medium text-purple-300 mb-1 capitalize">
-          {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-        </label>
-        <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">
-          {Array.isArray(value) ? value.join(', ') : String(value)}
+      );
+    } else {
+      // Simple value
+      return (
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-purple-300 mb-1 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
+          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">
+            {Array.isArray(value) ? value.join(', ') : String(value)}
+          </div>
         </div>
-      </div>
-    );
-  }
-};
+      );
+    }
+  };
 
   if (status === "loading" || isLoading) {
     return (
@@ -1130,8 +1300,84 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
       <main className="flex-1 container mx-auto px-4 py-6 max-w-7xl">
         {/* Error message */}
         {error && (
-          <div className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-3 rounded mb-6">
-            {error}
+          <div className={`border px-4 py-3 rounded mb-6 ${
+            errorType === "permission" 
+              ? "bg-orange-900/30 border-orange-800 text-orange-200"
+              : errorType === "validation"
+              ? "bg-yellow-900/30 border-yellow-800 text-yellow-200"  
+              : errorType === "network"
+              ? "bg-blue-900/30 border-blue-800 text-blue-200"
+              : "bg-red-900/30 border-red-800 text-red-200"
+          }`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start">
+                <div className="mr-3 mt-0.5">
+                  {errorType === "permission" && (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  )}
+                  {errorType === "validation" && (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  )}
+                  {errorType === "network" && (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                    </svg>
+                  )}
+                  {!errorType && (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-medium mb-1">
+                    {errorType === "permission" && "Permission Error"}
+                    {errorType === "validation" && "Validation Error"}
+                    {errorType === "network" && "Network Error"}
+                    {!errorType && "Error"}
+                  </h4>
+                  <p>{error}</p>
+                  
+                  {/* Action suggestions */}
+                  {errorType === "permission" && (
+                    <div className="mt-2 text-sm opacity-90">
+                      <p>Try: Contact the repository owner, check your GitHub permissions, or refresh your session.</p>
+                    </div>
+                  )}
+                  {errorType === "network" && (
+                    <div className="mt-2 text-sm opacity-90">
+                      <p>Try: Check your internet connection, wait a moment, then refresh the page.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {errorType === "permission" && (
+                  <button
+                    onClick={() => {
+                      clearError();
+                      router.push("/signin");
+                    }}
+                    className="text-sm underline hover:no-underline"
+                  >
+                    Sign In Again
+                  </button>
+                )}
+                <button
+                  onClick={clearError}
+                  className="text-current hover:opacity-70"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1249,12 +1495,15 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
                         setIsEditMode(false);
                         setIsEditingSEO(false);
                         setSeoData(null);
+                        clearError(); // Clear any file-specific errors
                       }}
-                      className="text-neutral-400 hover:text-white p-1 rounded"
+                      className="text-neutral-400 hover:text-white p-1 rounded flex items-center gap-1"
+                      title="Go back to file browser"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
+                      <span className="text-sm">Back</span>
                     </button>
                     
                     <div className="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded text-sm">
@@ -1396,7 +1645,7 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
                       <div className="text-neutral-500 text-sm">
                         Branch: <span className="text-neutral-300">{repository.default_branch}</span>
                       </div>
-                    </div>
+                    </div
                     
                     {/* Create File Button with Dropdown */}
                     <div className="relative">
@@ -1491,6 +1740,7 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
                       </div>
                     ))
                   ) : (
+                   
                     <div className="py-16 text-center text-neutral-400">
                       This folder is empty
                     </div>
@@ -1501,6 +1751,185 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
           </>
         )}
       </main>
+
+      {/* Create SEO File Modal */}
+      {showCreateSEO && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between border-b border-neutral-800 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </div>
+                <h2 className="text-xl font-semibold text-white">Create SEO File</h2>
+              </div>
+              <button 
+                onClick={handleCancelCreateSEO}
+                className="text-neutral-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
+                <h3 className="text-lg font-medium text-white mb-2">SEO Metadata</h3>
+                <p className="text-neutral-300 text-sm">Fill out the fields below to create a structured SEO file for your website. This will help search engines understand your content better.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  File Name
+                </label>
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  placeholder="seo.json (will auto-add .seo.json if needed)"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+                <p className="text-xs text-neutral-400 mt-1">
+                  File will be created in: {currentPath ? `${owner}/${repo}/${currentPath}/` : `${owner}/${repo}/`}
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Page Title (meta_title)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSEOData.meta_title}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, meta_title: e.target.value }))
+                    }
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    placeholder="Enter the page title for search engines"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">This appears in search engine results and browser tabs</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Meta Description
+                  </label>
+                  <textarea
+                    value={newSEOData.meta_description}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, meta_description: e.target.value }))
+                    }
+                    rows={3}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                    placeholder="Enter a brief description of the page content"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">This appears in search engine results below the title (150-160 characters recommended)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Keywords (meta_keywords)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSEOData.meta_keywords}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, meta_keywords: e.target.value }))
+                    }
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    placeholder="keyword1, keyword2, keyword3"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">Comma-separated keywords that describe your page content</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Main Heading (H1)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSEOData.h1}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, h1: e.target.value }))
+                    }
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    placeholder="Enter the main heading for your page"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">The primary heading that visitors will see</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Secondary Heading (H2)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSEOData.h2}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, h2: e.target.value }))
+                    }
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    placeholder="Enter the secondary heading"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">A supporting headline or subtitle</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Main Content
+                  </label>
+                  <textarea
+                    value={newSEOData["content-main"]}
+                    onChange={(e) => setNewSEOData(prev => ({ ...prev, "content-main": e.target.value }))
+                    }
+                    rows={4}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                    placeholder="Enter the main content or description for your page"
+                  />
+                  <p className="text-xs text-neutral-400 mt-1">The main paragraph or content that describes your page</p>
+                </div>
+              </div>
+              
+              {createFileError && (
+                <div className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-3 rounded">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium mb-1">SEO File Creation Error</h4>
+                      <p>{createFileError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+                <div className="text-sm text-neutral-400">
+                  <span className="font-medium">Preview:</span> The file will be saved as JSON with proper formatting
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCancelCreateSEO}
+                    className="px-4 py-2 text-neutral-300 hover:text-white border border-neutral-700 rounded-lg hover:bg-neutral-800 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateSEOFile}
+                    disabled={isCreatingFile}
+                    className={`px-4 py-2 rounded-lg font-medium transition ${
+                      isCreatingFile
+                        ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
+                        : "bg-purple-600 hover:bg-purple-700 text-white"
+                    }`}
+                  >
+                    {isCreatingFile ? "Creating..." : "Create SEO File"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create File Modal */}
       {showCreateFile && (
@@ -1550,7 +1979,15 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
               
               {createFileError && (
                 <div className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-3 rounded">
-                  {createFileError}
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium mb-1">File Creation Error</h4>
+                      <p>{createFileError}</p>
+                    </div>
+                  </div>
                 </div>
               )}
               
@@ -1662,7 +2099,15 @@ const renderSEOPreviewField = (key: string, value: any, path: string = ""): Reac
                 
                 {inviteError && (
                   <div className="bg-red-900/30 border border-red-800 text-red-200 px-4 py-3 rounded">
-                    {inviteError}
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <h4 className="font-medium mb-1">Invitation Error</h4>
+                        <p>{inviteError}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
                 
