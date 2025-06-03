@@ -1348,6 +1348,143 @@ Your project license.
     );
   }
 
+  // Helper function to get file extension badge
+  const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
+    // Don't show badge for directories
+    if (file.type === "dir") {
+      return null;
+    }
+
+    // SEO file
+    if (file.name.endsWith(".seo.json")) {
+      return (
+        <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
+          SEO
+        </span>
+      );
+    }
+
+    // Markdown file
+    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
+      return (
+        <span className="ml-2 text-xs bg-green-600 text-green-100 px-1.5 py-0.5 rounded">
+          MD
+        </span>
+      );
+    }
+
+    // JavaScript/TypeScript files
+    if (/\.(js|jsx)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          JS
+        </span>
+      );
+    }
+
+    if (/\.(ts|tsx)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          TS
+        </span>
+      );
+    }
+
+    // JSON files
+    if (file.name.endsWith(".json")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          JSON
+        </span>
+      );
+    }
+
+    // CSS/SCSS files
+    if (/\.(css|scss)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          CSS
+        </span>
+      );
+    }
+
+    // HTML files
+    if (file.name.endsWith(".html")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          HTML
+        </span>
+      );
+    }
+
+    // YAML files
+    if (/\.(yml|yaml)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          YAML
+        </span>
+      );
+    }
+
+    // XML files
+    if (file.name.endsWith(".xml")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          XML
+        </span>
+      );
+    }
+
+    // Environment files
+    if (file.name.endsWith(".env")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          ENV
+        </span>
+      );
+    }
+
+    // Text files
+    if (file.name.endsWith(".txt")) {
+      return (
+        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
+          TXT
+        </span>
+      );
+    }
+
+    // Image files
+    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
+      const extension = file.name.split('.').pop()?.toUpperCase();
+      return (
+        <span className="ml-2 text-xs bg-pink-600 text-pink-100 px-1.5 py-0.5 rounded">
+          {extension}
+        </span>
+      );
+    }
+
+    // PDF files
+    if (file.name.endsWith(".pdf")) {
+      return (
+        <span className="ml-2 text-xs bg-red-600 text-red-100 px-1.5 py-0.5 rounded">
+          PDF
+        </span>
+      );
+    }
+
+    // Default - show file extension
+    const extension = file.name.split('.').pop();
+    if (extension && extension !== file.name) {
+      return (
+        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
+          {extension.toUpperCase()}
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
@@ -1817,6 +1954,7 @@ Your project license.
                                 SEO
                               </span>
                             )}
+                            {!isSEOFile(file.name, file.path) && getFileExtensionBadge(file)}
                           </div>
                         </div>
                       </div>
@@ -1843,7 +1981,7 @@ Your project license.
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create SEO File</h2>
               </div>
