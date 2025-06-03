@@ -6,6 +6,25 @@
 
 MetaSync provides an intuitive interface for managing your GitHub repositories, editing content, and collaborating with your team. Powerful repository management made simple.
 
+## 📸 Screenshots
+
+### Dashboard
+![Dashboard](./screenshots/dashboard.png)
+*Browse and manage all your GitHub repositories in one place*
+
+### Repository Management
+![Repository View](./screenshots/repository.png)
+*Navigate through files and folders with an intuitive interface*
+
+### File Editor
+![File Editor](./screenshots/seo.png)
+*Edit files directly in the browser with syntax highlighting*
+
+### Create New Files
+![SEO Editor](./screenshots/create.png)
+*Manage SEO metadata with our specialised form editor*
+
+
 ## ✨ Features
 
 - 🔗 **GitHub Integration** - Seamless connection with your GitHub repositories
@@ -78,9 +97,9 @@ yarn dev
 
 ## 🔧 Configuration
 
-### SEO Customization
+### SEO Customisation
 
-Create a `seo.json` file in the root directory to customize meta tags:
+Create a `seo.json` file in the root directory to customise meta tags:
 
 ```json
 {
