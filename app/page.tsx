@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 
 // Default SEO data fallback
@@ -144,7 +145,7 @@ export default function Home() {
         <p className="max-w-xl mx-auto text-neutral-300 mb-8 text-lg">
           {seoData["content-main"]}
         </p>
-        <div className="flex gap-4 justify-center mb-20">
+        <div className="flex gap-4 justify-center mb-12">
           <Link
             href="/signin"
             className="bg-white text-black font-medium px-7 py-3 rounded-lg shadow hover:bg-neutral-200 transition"
@@ -152,7 +153,7 @@ export default function Home() {
             Sign in with GitHub
           </Link>
           <a
-            href="https://github.com"
+            href="https://github.com/kiaann1/metasync"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-neutral-900 text-white font-medium px-7 py-3 rounded-lg border border-neutral-700 shadow hover:bg-neutral-800 transition"
@@ -160,9 +161,25 @@ export default function Home() {
             Get the source code
           </a>
         </div>
-        <div className="mb-2 text-neutral-400">
-          Works with all popular static site generators
+        
+        {/* App Screenshot */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <div className="rounded-lg overflow-hidden shadow-2xl border border-neutral-800">
+            <Image
+              src="/screenshots/repository.png" 
+              alt="MetaSync Repository Management Interface"
+              width={1200}
+              height={800}
+              className="w-full h-auto"
+              priority
+              onError={() => console.log('Image failed to load')}
+            />
+          </div>
+          <p className="text-neutral-400 text-sm mt-4">
+            Manage your repositories with an intuitive, modern interface
+          </p>
         </div>
+        
       </main>
     </div>
   );
