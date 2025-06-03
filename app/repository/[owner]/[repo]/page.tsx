@@ -119,17 +119,6 @@ export default function RepositoryPage() {
     "content-main": ""
   });
 
-  // Format dates in a more readable format
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Unknown date";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-
     // Add these interfaces to your file
 interface Collaborator {
   id: number;
@@ -1064,6 +1053,14 @@ Your project license.
     }
   };
 
+  // Function to cancel Create File modal
+  const handleCancelCreateFile = () => {
+    setShowCreateFile(false);
+    setNewFileName("");
+    setNewFileContent("");
+    setCreateFileError(null);
+  };
+
   // Function to cancel SEO file creation
   const handleCancelCreateSEO = () => {
     setShowCreateSEO(false);
@@ -1265,6 +1262,91 @@ Your project license.
       );
     }
   };
+
+  // Helper function to determine if a file is a text file based on its extension
+  const isTextFile = (filename: string) => {
+    const textExtensions = [
+      ".txt", ".md", ".js", ".ts", ".tsx", ".jsx", ".json", ".css", ".scss", ".html", ".xml", ".yml", ".yaml", ".csv", ".env", ".seo.json"
+    ];
+    const lower = filename.toLowerCase();
+    return textExtensions.some(ext => lower.endsWith(ext));
+  };
+
+  // Helper function to get file icons based on file type
+  const getFileIcon = (file: FileItem): React.ReactNode => {
+    // Directory
+    if (file.type === "dir") {
+      return (
+        <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+        </svg>
+      );
+    }
+
+    // SEO file
+    if (file.name.endsWith(".seo.json")) {
+      return (
+        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      );
+    }
+
+    // Markdown file
+    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
+      return (
+        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
+        </svg>
+      );
+    }
+
+    // Code files
+    if (/\.(js|jsx|ts|tsx|json|yml|yaml|css|scss|html|xml|env)$/i.test(file.name)) {
+      return (
+        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
+        </svg>
+      );
+    }
+
+    // Text file
+    if (file.name.endsWith(".txt")) {
+      return (
+        <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-6 8h6a2 2 0 002-2V7.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0012.172 1H6a2 2 0 00-2 2v16a2 2 0 002 2z" />
+        </svg>
+      );
+    }
+
+    // Image file
+    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
+      return (
+        <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/>
+          <path stroke="currentColor" strokeWidth={2} d="M21 19l-5.5-7-4.5 6-2.5-3L3 19"/>
+        </svg>
+      );
+    }
+
+    // PDF file
+    if (file.name.endsWith(".pdf")) {
+      return (
+        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+          <text x="7" y="16" fontSize="8" fill="currentColor">PDF</text>
+        </svg>
+      );
+    }
+
+    // Default file icon
+    return (
+      <svg className="w-6 h-6 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
+      </svg>
+    );
+  }
 
   if (status === "loading" || isLoading) {
     return (
@@ -1645,7 +1727,7 @@ Your project license.
                       <div className="text-neutral-500 text-sm">
                         Branch: <span className="text-neutral-300">{repository.default_branch}</span>
                       </div>
-                    </div
+                    </div>
                     
                     {/* Create File Button with Dropdown */}
                     <div className="relative">
@@ -1761,6 +1843,7 @@ Your project license.
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create SEO File</h2>
               </div>
@@ -1937,14 +2020,26 @@ Your project license.
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between border-b border-neutral-800 p-4">
               <h2 className="text-xl font-semibold text-white">Create New File</h2>
-              <button 
-                onClick={handleCancelCreateFile}
+                <button 
+                onClick={() => {
+                  if (newFileName.trim() || newFileContent.trim()) {
+                  if (
+                    confirm(
+                    "You have unsaved edits. Are you sure you want to close this modal and lose your changes?"
+                    )
+                  ) {
+                    handleCancelCreateFile();
+                  }
+                  } else {
+                  handleCancelCreateFile();
+                  }
+                }}
                 className="text-neutral-400 hover:text-white"
-              >
+                >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+                </button>
             </div>
             
             <div className="p-6 space-y-4">
