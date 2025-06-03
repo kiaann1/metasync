@@ -775,7 +775,15 @@ const handleSaveSEOContent = async () => {
         setCreateFileError("Please fill in at least the title and description fields");
         return;
       }
-      fileName = "seo.json";
+      
+      // Use custom filename if provided, otherwise default to seo.json
+      fileName = newFileName.trim() || "seo.json";
+      
+      // Ensure .json extension for SEO files
+      if (!fileName.endsWith('.json')) {
+        fileName += '.json';
+      }
+      
       fileContent = JSON.stringify(seoFormForCreate, null, 2);
     } else if (createFileType === "readme") {
       fileName = "README.md";
@@ -1484,7 +1492,23 @@ const parseSEOContent = (content: string): SEOData | null => {
                 <div className="space-y-6">
                   <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
                     <h3 className="text-lg font-medium text-white mb-2">SEO Configuration</h3>
-                    <p className="text-neutral-300 text-sm">Fill out the SEO metadata for your website. This will create a seo.json file in the current directory.</p>
+                    <p className="text-neutral-300 text-sm">Fill out the SEO metadata for your website. This will create a JSON file in the current directory.</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      File Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newFileName}
+                      onChange={(e) => setNewFileName(e.target.value)}
+                      placeholder="seo.json"
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Leave empty for default 'seo.json'. Extension '.json' will be added automatically.
+                    </p>
                   </div>
                   
                   <div>
@@ -1622,9 +1646,9 @@ const parseSEOContent = (content: string): SEOData | null => {
                 </button>
                 <button
                   onClick={handleCreateFile}
-                  disabled={isCreatingFile || (createFileType === "custom" && !newFileName.trim()) || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))}
+                  disabled={isCreatingFile || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))}
                   className={`px-4 py-2 rounded-lg font-medium transition ${
-                    isCreatingFile || (createFileType === "custom" && !newFileName.trim()) || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))
+                    isCreatingFile || (createFileType === "seo" && (!seoFormForCreate.meta_title.trim() || !seoFormForCreate.meta_description.trim()))
                       ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700 text-white"
                   }`}

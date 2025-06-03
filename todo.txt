@@ -29,4 +29,4 @@
 	•	If users manage multiple repositories, build an aggregated view where they can manage and edit files across different repos more easily.
 	•	Provide bulk editing options where users can update certain settings across multiple repositories at once.
 
-9. add "Create File" in the repo
+9. add "Create File" in the repo  ✅
