@@ -1,7 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import { Metadata } from "next";
-import fs from "fs";
-import path from "path";
+import { useState, useEffect } from "react";
 
 // Default SEO data fallback
 function getDefaultSEOData() {
@@ -15,81 +15,20 @@ function getDefaultSEOData() {
   };
 }
 
-// Read SEO data
-function getSEOData() {
-  try {
-    const filePath = path.join(process.cwd(), "seo.json");
-    
-    // Validate file exists and is readable
-    if (!fs.existsSync(filePath)) {
-      console.warn("SEO file not found, using defaults");
-      return getDefaultSEOData();
-    }
-    
-    const fileContents = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(fileContents);
-    
-    // Validate structure
-    if (!isValidSEOData(parsed)) {
-      throw new Error("Invalid SEO data structure");
-    }
-    
-    return sanitizeSEOData(parsed);
-  } catch (error) {
-    console.error("Failed to load SEO data:", error);
-    return getDefaultSEOData();
-  }
-}
-
-function isValidSEOData(data: any): boolean {
-  return data && 
-    typeof data.meta_title === 'string' &&
-    typeof data.meta_description === 'string' &&
-    typeof data.meta_keywords === 'string' &&
-    typeof data.h1 === 'string' &&
-    typeof data.h2 === 'string' &&
-    typeof data["content-main"] === 'string';
-}
-
-function sanitizeSEOData(data: any) {
-  // Sanitize HTML and limit lengths
-  return {
-    meta_title: data.meta_title.slice(0, 100),
-    meta_description: data.meta_description.slice(0, 160),
-    meta_keywords: data.meta_keywords.slice(0, 200),
-    h1: data.h1.slice(0, 100),
-    h2: data.h2.slice(0, 100),
-    "content-main": data["content-main"].slice(0, 500)
-  };
-}
-
-// Generate metadata for SEO
-export async function generateMetadata(): Promise<Metadata> {
-  const seoData = getSEOData();
-  
-  return {
-    title: seoData.meta_title,
-    description: seoData.meta_description,
-    keywords: seoData.meta_keywords,
-    openGraph: {
-      title: seoData.meta_title,
-      description: seoData.meta_description,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: seoData.meta_title,
-      description: seoData.meta_description,
-    },
-  };
-}
-
 export default function Home() {
-  const seoData = getSEOData();
+  const [seoData, setSeoData] = useState(getDefaultSEOData());
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    // Load SEO data on client side if needed
+    // For now, using default data
+    setSeoData(getDefaultSEOData());
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-7 h-16 border-b border-neutral-800">
+      <header className="flex items-center justify-between px-4 md:px-7 h-16 border-b border-neutral-800 relative z-50">
         <div className="text-2xl md:text-3xl font-bold">MetaSync</div>
         <nav className="flex items-center gap-2 md:gap-4">
           {/* Desktop navigation */}
@@ -119,10 +58,22 @@ export default function Home() {
           </div>
           
           {/* Mobile menu button */}
-          <button className="md:hidden p-2 text-neutral-400 hover:text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          <button 
+            className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors duration-200 relative z-50"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            <div className="w-6 h-6 flex flex-col justify-center items-center">
+              <span className={`block h-0.5 w-6 bg-current transform transition-all duration-300 ease-out ${
+                isMobileMenuOpen ? 'rotate-45 translate' : '-translate-y-1'
+              }`} />
+              <span className={`block h-0.5 w-6 bg-current transform transition-all duration-300 ease-out ${
+                isMobileMenuOpen ? 'opacity-0' : 'opacity-100'
+              }`} />
+              <span className={`block h-0.5 w-6 bg-current transform transition-all duration-300 ease-out ${
+                isMobileMenuOpen ? '-rotate-45 -translate-y-1.5' : 'translate-y-1'
+              }`} />
+            </div>
           </button>
           
           {/* Sign in button - always visible */}
@@ -135,6 +86,50 @@ export default function Home() {
           </Link>
         </nav>
       </header>
+
+      {/* Mobile menu overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile menu */}
+      <div className={`md:hidden fixed top-16 left-0 right-0 bg-neutral-900/95 backdrop-blur-lg border-b border-neutral-800 z-40 transform transition-all duration-300 ease-out ${
+        isMobileMenuOpen 
+          ? 'translate-y-0 opacity-100' 
+          : '-translate-y-full opacity-0 pointer-events-none'
+      }`}>
+        <nav className="px-6 py-6 space-y-1">
+          <Link 
+            href="/" 
+            className="block font-semibold text-white py-3 px-4 rounded-lg hover:bg-white/10 transition-colors duration-200"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            About
+          </Link>
+          <Link 
+            href="https://github.com/kiaann1/metasync/" 
+            className="block text-neutral-300 hover:text-white py-3 px-4 rounded-lg hover:bg-white/10 transition-colors duration-200"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            Docs
+          </Link>
+          <a
+            href="https://github.com/kiaann1/metasync/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-neutral-300 hover:text-white py-3 px-4 rounded-lg hover:bg-white/10 transition-colors duration-200"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <span className="flex items-center justify-between">
+              GitHub 
+              <span className="text-xs opacity-60">↗</span>
+            </span>
+          </a>
+        </nav>
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col justify-center items-center text-center px-4">
