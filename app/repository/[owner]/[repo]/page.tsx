@@ -54,7 +54,12 @@ interface FileItem {
 }
 
 interface SEOData {
-  [key: string]: string | number | boolean | null;
+  meta_title: string;
+  meta_description: string;
+  meta_keywords: string;
+  h1: string;
+  h2: string;
+  "content-main": string;
 }
 
 export default function RepositoryPage() {
@@ -87,7 +92,14 @@ export default function RepositoryPage() {
   // SEO states
   const [seoData, setSeoData] = useState<SEOData | null>(null);
   const [isEditingSEO, setIsEditingSEO] = useState(false);
-  const [seoFormData, setSeoFormData] = useState<SEOData>({});
+  const [seoFormData, setSeoFormData] = useState<SEOData>({
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    h1: "",
+    h2: "",
+    "content-main": ""
+  });
 
   // Create file states
   const [showCreateFile, setShowCreateFile] = useState(false);
@@ -864,15 +876,16 @@ const handleSaveSEOContent = async () => {
 
   // Add this function to detect if file is seo.json
 const isSEOFile = (filename: string, path: string) => {
-  return filename.endsWith(".seo.json") || path.endsWith(".seo.json");
+  return filename === "seo.json" || path === "seo.json";
 };
 
-// Update the SEO content parser to accept any JSON structure
+// Add this function to parse and validate SEO JSON
 const parseSEOContent = (content: string): SEOData | null => {
   try {
     const parsed = JSON.parse(content);
-    // Accept any valid JSON object
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    // Validate that it has the expected SEO structure
+    if (parsed && typeof parsed === 'object' && 
+        'meta_title' in parsed && 'meta_description' in parsed) {
       return parsed as SEOData;
     }
     return null;
@@ -881,116 +894,6 @@ const parseSEOContent = (content: string): SEOData | null => {
   }
 };
 
-  // Add helper functions for dynamic form rendering
-  const getFieldType = (key: string, value: any): 'text' | 'textarea' | 'number' | 'boolean' => {
-    if (typeof value === 'boolean') return 'boolean';
-    if (typeof value === 'number') return 'number';
-    if (typeof value === 'string') {
-      if (key.includes('description') || key.includes('content') || value.length > 100) {
-        return 'textarea';
-      }
-    }
-    return 'text';
-  };
-
-  const renderFormField = (key: string, value: any, onChange: (key: string, newValue: any) => void) => {
-    const fieldType = getFieldType(key, value);
-    const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-    switch (fieldType) {
-      case 'boolean':
-        return (
-          <div key={key}>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
-              {displayName}
-            </label>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={Boolean(value)}
-                onChange={(e) => onChange(key, e.target.checked)}
-                className="w-4 h-4 text-purple-600 bg-neutral-800 border-neutral-700 rounded focus:ring-purple-500 focus:ring-2"
-              />
-              <span className="ml-2 text-sm text-neutral-400">
-                {Boolean(value) ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
-          </div>
-        );
-      
-      case 'number':
-        return (
-          <div key={key}>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
-              {displayName}
-            </label>
-            <input
-              type="number"
-              value={String(value || '')}
-              onChange={(e) => onChange(key, parseFloat(e.target.value) || 0)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-            />
-          </div>
-        );
-      
-      case 'textarea':
-        return (
-          <div key={key}>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
-              {displayName}
-            </label>
-            <textarea
-              value={String(value || '')}
-              onChange={(e) => onChange(key, e.target.value)}
-              rows={3}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
-              placeholder={`Enter ${displayName.toLowerCase()}`}
-            />
-          </div>
-        );
-      
-      default:
-        return (
-          <div key={key}>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
-              {displayName}
-            </label>
-            <input
-              type="text"
-              value={String(value || '')}
-              onChange={(e) => onChange(key, e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-              placeholder={`Enter ${displayName.toLowerCase()}`}
-            />
-          </div>
-        );
-    }
-  };
-
-  const handleSeoFormChange = (key: string, value: any) => {
-    setSeoFormData(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const addNewField = () => {
-    const fieldName = prompt('Enter field name:');
-    if (fieldName && fieldName.trim()) {
-      const cleanFieldName = fieldName.trim().replace(/\s+/g, '_').toLowerCase();
-      handleSeoFormChange(cleanFieldName, '');
-    }
-  };
-
-  const removeField = (key: string) => {
-    if (confirm(`Remove field "${key}"?`)) {
-      const newData = { ...seoFormData };
-      delete newData[key];
-      setSeoFormData(newData);
-    }
-  };
-
-  // Fix the loading state to use isLoading from the component
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
@@ -1225,61 +1128,130 @@ const parseSEOContent = (content: string): SEOData | null => {
                 
                 <div className="p-6">
                   {seoData && isEditingSEO ? (
-                    /* Dynamic SEO Form Editor */
+                    /* SEO Form Editor */
                     <div className="space-y-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium text-white">Edit SEO Content</h3>
-                        <button
-                          onClick={addNewField}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Field
-                        </button>
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Page Title (meta_title)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.meta_title}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_title: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the page title for search engines"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results and browser tabs</p>
                       </div>
-                      
-                      {Object.entries(seoFormData).map(([key, value]) => (
-                        <div key={key} className="relative">
-                          {renderFormField(key, value, handleSeoFormChange)}
-                          <button
-                            onClick={() => removeField(key)}
-                            className="absolute top-0 right-0 p-1 text-neutral-400 hover:text-red-400"
-                            title={`Remove ${key} field`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      
-                      {Object.keys(seoFormData).length === 0 && (
-                        <div className="text-center py-8 text-neutral-400">
-                          <p>No fields found. Click "Add Field" to get started.</p>
-                        </div>
-                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Meta Description
+                        </label>
+                        <textarea
+                          value={seoFormData.meta_description}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_description: e.target.value }))}
+                          rows={3}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                          placeholder="Enter a brief description of the page content"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">This appears in search engine results below the title (150-160 characters recommended)</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Keywords (meta_keywords)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.meta_keywords}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, meta_keywords: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="keyword1, keyword2, keyword3"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">Comma-separated keywords that describe your page content</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Main Heading (H1)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.h1}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h1: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the main heading for your page"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">The primary heading that visitors will see</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Secondary Heading (H2)
+                        </label>
+                        <input
+                          type="text"
+                          value={seoFormData.h2}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, h2: e.target.value }))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="Enter the secondary heading"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">A supporting headline or subtitle</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          Main Content
+                        </label>
+                        <textarea
+                          value={seoFormData["content-main"]}
+                          onChange={(e) => setSeoFormData(prev => ({ ...prev, "content-main": e.target.value }))}
+                          rows={4}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-y"
+                          placeholder="Enter the main content or description for your page"
+                        />
+                        <p className="text-xs text-neutral-400 mt-1">The main paragraph or content that describes your page</p>
+                      </div>
                     </div>
                   ) : seoData ? (
-                    /* Dynamic SEO Content Preview */
+                    /* SEO Content Preview */
                     <div className="space-y-6">
                       <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
                         <h3 className="text-lg font-medium text-white mb-2">SEO Content Preview</h3>
                         <p className="text-neutral-300 text-sm">This file contains SEO metadata for your website. Use the "Edit SEO Content" button to make changes safely.</p>
                       </div>
                       
-                      <div className="grid gap-4">
-                        {Object.entries(seoData).map(([key, value]) => (
-                          <div key={key}>
-                            <label className="block text-sm font-medium text-purple-300 mb-1">
-                              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </label>
-                            <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">
-                              {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value || '')}
-                            </div>
-                          </div>
-                        ))}
+                      <div className="grid gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Page Title</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_title}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Meta Description</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_description}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Keywords</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.meta_keywords}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Heading (H1)</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h1}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Secondary Heading (H2)</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData.h2}</div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-purple-300 mb-1">Main Content</label>
+                          <div className="bg-neutral-800 rounded-lg px-3 py-2 text-white">{seoData["content-main"]}</div>
+                        </div>
                       </div>
                     </div>
                   ) : isEditMode ? (
