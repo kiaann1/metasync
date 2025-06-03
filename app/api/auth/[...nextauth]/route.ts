@@ -37,11 +37,14 @@ const handler = NextAuth({
       return true;
     },
     async redirect({ url, baseUrl }) {
+      // Handle production URL properly
+      const productionUrl = process.env.NEXTAUTH_URL || baseUrl;
+
       // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (url.startsWith("/")) return `${productionUrl}${url}`;
       // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
+      else if (new URL(url).origin === productionUrl) return url;
+      return productionUrl;
     },
   },
   pages: {
@@ -50,6 +53,8 @@ const handler = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
+  // Add this for production
+  trustHost: true,
 });
 
 export { handler as GET, handler as POST };

@@ -279,7 +279,11 @@ const customRoles: CustomRole[] = [
 // Update the main useEffect for authentication and time
 useEffect(() => {
   if (status === "unauthenticated") {
-    router.push("/signin");
+    // Use absolute URL for production
+    const baseUrl = process.env.NODE_ENV === "production" 
+      ? "https://metasynccms.vercel.app" 
+      : "";
+    router.push(`${baseUrl}/signin`);
     return;
   }
 
