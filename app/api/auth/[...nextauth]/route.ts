@@ -37,14 +37,30 @@ const handler = NextAuth({
       return true;
     },
     async redirect({ url, baseUrl }) {
-      // Handle production URL properly
-      const productionUrl = process.env.NEXTAUTH_URL || baseUrl;
+      // Force production URL in production environment
+      const isProduction = process.env.NODE_ENV === "production";
+      const productionUrl = "https://metasynccms.vercel.app";
+      const currentBaseUrl = isProduction ? productionUrl : baseUrl;
 
       // Allows relative callback URLs
-      if (url.startsWith("/")) return `${productionUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === productionUrl) return url;
-      return productionUrl;
+      if (url.startsWith("/")) {
+        return `${currentBaseUrl}${url}`;
+      }
+
+      // Check if URL is on the same origin as our production/development URL
+      try {
+        const urlObj = new URL(url);
+        const baseUrlObj = new URL(currentBaseUrl);
+
+        if (urlObj.origin === baseUrlObj.origin) {
+          return url;
+        }
+      } catch (error) {
+        console.error("Error parsing URLs in redirect:", error);
+      }
+
+      // Default to dashboard
+      return `${currentBaseUrl}/dashboard`;
     },
   },
   pages: {
@@ -53,6 +69,9 @@ const handler = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
+  // Add these for production stability
+  trustHost: true,
+  useSecureCookies: process.env.NODE_ENV === "production",
 });
 
 export { handler as GET, handler as POST };
