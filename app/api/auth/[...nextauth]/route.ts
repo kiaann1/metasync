@@ -53,8 +53,6 @@ const handler = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
-  // Add this for production
-  trustHost: true,
 });
 
 export { handler as GET, handler as POST };
