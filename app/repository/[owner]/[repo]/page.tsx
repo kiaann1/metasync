@@ -1089,11 +1089,20 @@ Your project license.
       case "canonical_url":
         addSEOField("canonical_url", "");
         break;
+      case "robots":
+        addSEOField("robots", "index,follow");
+        break;
       case "structured_data":
         addSEOField("structured_data", {
           "@context": "https://schema.org",
           "@type": "WebPage"
         });
+        break;
+      case "content_section":
+        addSEOField(`content_section_${Date.now()}`, "");
+        break;
+      case "faq":
+        addSEOField("faq", []);
         break;
       case "custom":
         setShowCustomFieldDialog(true);
@@ -1104,7 +1113,7 @@ Your project license.
     setShowAddFieldMenu(false);
   };
 
-    // Function to delete SEO field
+  // Function to delete SEO field
   const deleteSEOField = (fieldKey: string) => {
     if (confirm(`Are you sure you want to delete the "${fieldKey}" field?`)) {
       setSeoFormData(prev => {
@@ -1114,43 +1123,6 @@ Your project license.
       });
     }
   };
-
-  // Function to handle custom field addition
-  const handleAddCustomField = () => {
-    if (!customFieldName.trim()) return;
-    
-    let fieldValue: any = "";
-    switch (customFieldType) {
-      case "text":
-        fieldValue = "";
-        break;
-      case "textarea":
-        fieldValue = "";
-        break;
-      case "array":
-        fieldValue = [];
-        break;
-      case "object":
-        fieldValue = {};
-        break;
-    }
-    
-    addSEOField(customFieldName.trim(), fieldValue);
-  };
-
-  // Fix for empty initial state
-  useEffect(() => {
-    if (Object.keys(seoFormData).length === 0) {
-      setSeoFormData({
-        meta_title: "",
-        meta_description: "",
-        meta_keywords: "",
-        h1: "",
-        h2: "",
-        "content-main": ""
-      });
-    }
-  }, [seoFormData]);
 
   // Check if a file is a SEO file based on name or path
   const isSEOFile = (filename: string, path: string) => {
@@ -1181,10 +1153,21 @@ Your project license.
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Nested object
       return (
-        <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-purple-300 capitalize">
-            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-          </h4>
+        <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4 relative">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-purple-300 capitalize">
+              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+            </h4>
+            <button
+              onClick={() => deleteSEOField(key)}
+              className="text-red-400 hover:text-red-300 p-1"
+              title="Delete field"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
           <div className="space-y-3 ml-4">
             {Object.entries(value).map(([nestedKey, nestedValue]) => 
               renderSEOFormField(nestedKey, nestedValue, fullKey)
@@ -1195,10 +1178,21 @@ Your project license.
     } else if (Array.isArray(value)) {
       // Array handling
       return (
-        <div key={fullKey}>
-          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-          </label>
+        <div key={fullKey} className="relative">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-neutral-300 capitalize">
+              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+            </label>
+            <button
+              onClick={() => deleteSEOField(key)}
+              className="text-red-400 hover:text-red-300 p-1"
+              title="Delete field"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
           <textarea
             value={Array.isArray(value) ? value.join(', ') : value}
             onChange={(e) => updateSEOFormData(fullKey, e.target.value.split(', ').filter(Boolean))}
@@ -1212,10 +1206,21 @@ Your project license.
     } else if (typeof value === 'string' && value.length > 50) {
       // Long text - use textarea
       return (
-        <div key={fullKey}>
-          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-          </label>
+        <div key={fullKey} className="relative">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-neutral-300 capitalize">
+              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+            </label>
+            <button
+              onClick={() => deleteSEOField(key)}
+              className="text-red-400 hover:text-red-300 p-1"
+              title="Delete field"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
           <textarea
             value={value}
             onChange={(e) => updateSEOFormData(fullKey, e.target.value)}
@@ -1231,10 +1236,21 @@ Your project license.
     } else {
       // Short text, number, boolean - use input
       return (
-        <div key={fullKey}>
-          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
-            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-          </label>
+        <div key={fullKey} className="relative">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-neutral-300 capitalize">
+              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+            </label>
+            <button
+              onClick={() => deleteSEOField(key)}
+              className="text-red-400 hover:text-red-300 p-1"
+              title="Delete field"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
           <input
             type={typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text'}
             value={typeof value === 'boolean' ? undefined : value}
@@ -1875,53 +1891,25 @@ Your project license.
                                   onClick={() => handleAddPredefinedField("og_title")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                   Title
+                                  OG Title
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_description")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                   Description
+                                  OG Description
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_image")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                   Image
+                                  OG Image
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_url")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                   URL
-                                </button>
-                                
-                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                  Twitter Card Fields
-                                </div>
-                                <button
-                                  onClick={() => handleAddPredefinedField("twitter_card")}
-                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                                >
-                                  Twitter Card Type
-                                </button>
-                                <button
-                                  onClick={() => handleAddPredefinedField("twitter_title")}
-                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                                >
-                                  Twitter Title
-                                </button>
-                                <button
-                                  onClick={() => handleAddPredefinedField("twitter_description")}
-                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                                >
-                                  Twitter Description
-                                </button>
-                                <button
-                                  onClick={() => handleAddPredefinedField("twitter_image")}
-                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                                >
-                                  Twitter Image
+                                  OG URL
                                 </button>
                                 
                                 <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
