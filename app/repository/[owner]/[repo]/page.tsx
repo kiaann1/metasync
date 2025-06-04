@@ -72,7 +72,6 @@ export default function RepositoryPage() {
   const [errorType, setErrorType] = useState<"general" | "permission" | "validation" | "network" | null>(null);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [currentPath, setCurrentPath] = useState("");
-  const [currentTime, setCurrentTime] = useState<string>("");
   const [fileContent, setFileContent] = useState<{ content: string; name: string; path: string } | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState("");
@@ -124,6 +123,14 @@ export default function RepositoryPage() {
   const [showCustomFieldDialog, setShowCustomFieldDialog] = useState(false);
   const [customFieldName, setCustomFieldName] = useState("");
   const [customFieldType, setCustomFieldType] = useState<"text" | "textarea" | "array" | "object">("text");
+
+  // Add drag and drop states
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
     // Add these interfaces to your file
 interface Collaborator {
@@ -209,36 +216,13 @@ const customRoles: CustomRole[] = [
 
 // (Moved below fetchCollaborators declaration)
 
-// Fix the date formatting in the header section
-  const formatCurrentTime = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    return `${hours}:${minutes}:${seconds} ${day}-${month}-${year} `;
-  };
-
-// Update the main useEffect for authentication and time
+// Update the main useEffect for authentication
 useEffect(() => {
   if (status === "unauthenticated") {
     router.push("/signin");
     return;
   }
-
-  // Set current time using the proper formatting function
-  setCurrentTime(formatCurrentTime());
-
-  // Optional: Update the time every minute
-  const timer = setInterval(() => {
-    setCurrentTime(formatCurrentTime());
-  }, 60000);
-  
-  return () => clearInterval(timer);
-}, [status, router, session]); // Added missing dependencies
+}, [status, router, session]);
 
   // Enhanced error handling function
   const handleError = (err: any, context: string = "") => {
@@ -375,7 +359,7 @@ useEffect(() => {
         `https://api.github.com/repos/${owner}/${repo}/collaborators`,
         {
           headers: {
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session?.accessToken ?? ""}`,
             "User-Agent": "MetaSync-App"
           }
         }
@@ -416,23 +400,12 @@ useEffect(() => {
     }
   }, [showSettings, activeTab, fetchCollaborators]);
 
-// Update the main useEffect for authentication and time
-useEffect(() => {
-  if (status === "unauthenticated") {
-    router.push("/signin");
-    return;
-  }
-
-  // Set current time using the proper formatting function
-  setCurrentTime(formatCurrentTime());
-
-  // Optional: Update the time every minute
-  const timer = setInterval(() => {
-    setCurrentTime(formatCurrentTime());
-  }, 60000);
-  
-  return () => clearInterval(timer);
-}, [status, router, session]); // Added missing dependencies
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/signin");
+    }
+  }, [status, router]);
 
   const inviteCollaborator = async () => {
     if (!session?.accessToken || !inviteEmail) return;
@@ -462,7 +435,7 @@ useEffect(() => {
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${session.accessToken}`,
+            Authorization: `Bearer ${session?.accessToken ?? ""}`,
             "Content-Type": "application/json",
             "User-Agent": "MetaSync-App"
           },
@@ -504,7 +477,7 @@ const removeCollaborator = async (username: string) => {
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${session.accessToken}`,
+          Authorization: `Bearer ${session?.accessToken ?? ""}`,
           "User-Agent": "MetaSync-App"
         }
       }
@@ -524,17 +497,6 @@ const removeCollaborator = async (username: string) => {
     setIsLoading(false);
   }
 };
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/signin");
-    }
-    
-    // Set current time
-    const now = new Date();
-    setCurrentTime(now.toISOString().replace('T', ' ').substring(0, 19));
-  }, [status, router]);
 
   // Get repository details and files
   useEffect(() => {
@@ -1099,7 +1061,7 @@ Your project license.
         });
         break;
       case "content_section":
-        addSEOField(`content_section_${Date.now()}`, "");
+        addSEOField("content_section", "")        
         break;
       case "faq":
         addSEOField("faq", []);
@@ -1356,240 +1318,145 @@ Your project license.
     return textExtensions.some(ext => lower.endsWith(ext));
   };
 
-  // Helper function to get file icons based on file type
   const getFileIcon = (file: FileItem): React.ReactNode => {
-    // Directory
-    if (file.type === "dir") {
-      return (
-        <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-        </svg>
-      );
-    }
-
-    // SEO file (both .seo.json and seo.json)
-    if (file.name.endsWith(".seo.json") || file.name === "seo.json") {
-      return (
-        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-      );
-    }
-
-    // Markdown file
-    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
-      return (
-        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
-        </svg>
-      );
-    }
-
-    // Code files
-    if (/\.(js|jsx|ts|tsx|json|yml|yaml|css|scss|html|xml|env)$/i.test(file.name)) {
-      return (
-        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
-        </svg>
-      );
-    }
-
-    // Text file
-    if (file.name.endsWith(".txt")) {
-      return (
-        <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-6 8h6a2 2 0 002-2V7.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0012.172 1H6a2 2 0 00-2 2v16a2 2 0 002 2z" />
-        </svg>
-      );
-    }
-
-    // Image file
-    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
-      return (
-        <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
-          <circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/>
-          <path stroke="currentColor" strokeWidth={2} d="M21 19l-5.5-7-4.5 6-2.5-3L3 19"/>
-        </svg>
-      );
-    }
-
-    // PDF file
-    if (file.name.endsWith(".pdf")) {
-      return (
-        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
-          <text x="7" y="16" fontSize="8" fill="currentColor">PDF</text>
-        </svg>
-      );
-    }
-
-    // Default file icon
-    return (
+  // SVG Components
+  const icons = {
+    folder: (
+      <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+      </svg>
+    ),
+    seo: (
+      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
+      </svg>
+    ),
+    md: (
+      <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    code: (
+      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
+      </svg>
+    ),
+    txt: (
+      <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-6 8h6a2 2 0 002-2V7.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0012.172 1H6a2 2 0 00-2 2v16a2 2 0 002 2z" />
+      </svg>
+    ),
+    image: (
+      <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+        <circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/>
+        <path stroke="currentColor" strokeWidth={2} d="M21 19l-5.5-7-4.5 6-2.5-3L3 19"/>
+      </svg>
+    ),
+    pdf: (
+      <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+        <text x="7" y="16" fontSize="8" fill="currentColor">PDF</text>
+      </svg>
+    ),
+    default: (
       <svg className="w-6 h-6 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
       </svg>
+    )
+  };
+
+  const lowerName = file.name.toLowerCase();
+
+  if (file.type === "dir") return icons.folder;
+  if (file.name.endsWith(".seo.json") || lowerName === "seo.json") return icons.seo;
+  if (lowerName === "readme.md" || lowerName.endsWith(".md")) return icons.md;
+
+  // Code-related extensions
+  if (/\.(js|jsx|ts|tsx|json|yml|yaml|css|scss|html|xml|env)$/i.test(file.name)) return icons.code;
+
+  if (file.name.endsWith(".txt")) return icons.txt;
+
+  // Image extensions
+  if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) return icons.image;
+
+  if (file.name.endsWith(".pdf")) return icons.pdf;
+
+  return icons.default;
+};
+
+const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
+  if (file.type === "dir") return null;
+
+  const lowerName = file.name.toLowerCase();
+
+  // Special cases
+  if (file.name.endsWith(".seo.json") || lowerName === "seo.json") {
+    return (
+      <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
+        SEO
+      </span>
+    );
+  }
+  if (lowerName === "readme.md" || lowerName.endsWith(".md")) {
+    return (
+      <span className="ml-2 text-xs bg-green-600 text-green-100 px-1.5 py-0.5 rounded">
+        MD
+      </span>
     );
   }
 
-  // Helper function to get file extension badge
-  const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
-    // Don't show badge for directories
-    if (file.type === "dir") {
-      return null;
-    }
+  // Mapping of extension to badge config
+  const extBadges: { [key: string]: { label: string; color: string; text: string } } = {
+    js:   { label: "JS",   color: "bg-blue-600",    text: "text-blue-100" },
+    jsx:  { label: "JS",   color: "bg-blue-600",    text: "text-blue-100" },
+    ts:   { label: "TS",   color: "bg-blue-600",    text: "text-blue-100" },
+    tsx:  { label: "TS",   color: "bg-blue-600",    text: "text-blue-100" },
+    json: { label: "JSON", color: "bg-blue-600",    text: "text-blue-100" },
+    css:  { label: "CSS",  color: "bg-blue-600",    text: "text-blue-100" },
+    scss: { label: "CSS",  color: "bg-blue-600",    text: "text-blue-100" },
+    html: { label: "HTML", color: "bg-blue-600",    text: "text-blue-100" },
+    yml:  { label: "YAML", color: "bg-blue-600",    text: "text-blue-100" },
+    yaml: { label: "YAML", color: "bg-blue-600",    text: "text-blue-100" },
+    xml:  { label: "XML",  color: "bg-blue-600",    text: "text-blue-100" },
+    env:  { label: "ENV",  color: "bg-blue-600",    text: "text-blue-100" },
+    txt:  { label: "TXT",  color: "bg-neutral-600", text: "text-neutral-100" },
+    pdf:  { label: "PDF",  color: "bg-red-600",     text: "text-red-100" },
+  };
 
-    // SEO file (both .seo.json and seo.json)
-    if (file.name.endsWith(".seo.json") || file.name === "seo.json") {
-      return (
-        <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
-          SEO
-        </span>
-      );
-    }
+  // Image extensions
+  const imageExts = ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp"];
 
-    // Markdown file
-    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
-      return (
-        <span className="ml-2 text-xs bg-green-600 text-green-100 px-1.5 py-0.5 rounded">
-          MD
-        </span>
-      );
-    }
+  // Get extension
+  const extension = file.name.split('.').pop();
+  if (extension && extension !== file.name) {
+    const extLower = extension.toLowerCase();
 
-    // JavaScript/TypeScript files
-    if (/\.(js|jsx)$/i.test(file.name)) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          JS
-        </span>
-      );
-    }
-
-    if (/\.(ts|tsx)$/i.test(file.name)) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          TS
-        </span>
-      );
-    }
-
-    // JSON files
-    if (file.name.endsWith(".json")) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          JSON
-        </span>
-      );
-    }
-
-    // CSS/SCSS files
-    if (/\.(css|scss)$/i.test(file.name)) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          CSS
-        </span>
-      );
-    }
-
-    // HTML files
-    if (file.name.endsWith(".html")) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          HTML
-        </span>
-      );
-    }
-
-    // YAML files
-    if (/\.(yml|yaml)$/i.test(file.name)) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          YAML
-        </span>
-      );
-    }
-
-    // XML files
-    if (file.name.endsWith(".xml")) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          XML
-        </span>
-      );
-    }
-
-    // Environment files
-    if (file.name.endsWith(".env")) {
-      return (
-        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
-          ENV
-        </span>
-      );
-    }
-
-    // Text files
-    if (file.name.endsWith(".txt")) {
-      return (
-        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
-          TXT
-        </span>
-      );
-    }
-
-    // Image files
-    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
-      const extension = file.name.split('.').pop()?.toUpperCase();
+    if (imageExts.includes(extLower)) {
       return (
         <span className="ml-2 text-xs bg-pink-600 text-pink-100 px-1.5 py-0.5 rounded">
-          {extension}
-        </span>
-      );
-    }
-
-    // PDF files
-    if (file.name.endsWith(".pdf")) {
-      return (
-        <span className="ml-2 text-xs bg-red-600 text-red-100 px-1.5 py-0.5 rounded">
-          PDF
-        </span>
-      );
-    }
-
-    // Default - show file extension
-    const extension = file.name.split('.').pop();
-    if (extension && extension !== file.name) {
-      return (
-        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
           {extension.toUpperCase()}
         </span>
       );
     }
-
-    return null;
-  };
-
-  // Helper function to format ISO date strings
-  function formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "Invalid date";
-    return date.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  }
-
-  if (status === "loading" || isLoading) {
+    if (extBadges[extLower]) {
+      const { label, color, text } = extBadges[extLower];
+      return (
+        <span className={`ml-2 text-xs ${color} ${text} px-1.5 py-0.5 rounded`}>
+          {label}
+        </span>
+      );
+    }
+    // Default: show extension in neutral badge
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
-        <div className="animate-pulse text-neutral-400">Loading repository data...</div>
-      </div>
+      <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
+        {extension.toUpperCase()}
+      </span>
     );
   }
+
+  return null;
+};
 
   function handleCancelCreateSEO() {
       setShowCreateSEO(false);
@@ -1636,6 +1503,258 @@ Your project license.
     addSEOField(customFieldName.trim(), fieldValue);
   };
 
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if we're leaving the drop zone completely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowUploadModal(true);
+    }
+  };
+
+  // File input handler
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowUploadModal(true);
+    }
+    // Reset input
+    e.target.value = '';
+  };
+
+  // Upload files function
+  const uploadFiles = async () => {
+    if (!session?.accessToken || selectedFiles.length === 0) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadProgress({});
+
+    try {
+      for (const file of selectedFiles) {
+        // Validate file name
+        const fileNameError = validateFileName(file.name);
+        if (fileNameError) {
+          setUploadError(`Invalid filename "${file.name}": ${fileNameError}`);
+          continue;
+        }
+
+        // Check file size (GitHub has a 100MB limit)
+        if (file.size > 100 * 1024 * 1024) {
+          setUploadError(`File "${file.name}" is too large. Maximum size is 100MB.`);
+          continue;
+        }
+
+        const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+
+        // Check if file already exists
+        try {
+          const existingFileResponse = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+                "User-Agent": "MetaSync-App"
+              }
+            }
+          );
+
+          if (existingFileResponse.ok) {
+            if (!confirm(`File "${file.name}" already exists. Do you want to overwrite it?`)) {
+              continue;
+            }
+          }
+        } catch (err) {
+          // File doesn't exist, which is fine
+        }
+
+        // Update progress
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+
+        // Read file content
+        const fileContent = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Remove data URL prefix and get base64 content
+            const base64Content = result.split(',')[1];
+            resolve(base64Content);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        // Update progress
+        setUploadProgress(prev => ({ ...prev, [file.name]: 50 }));
+
+        // Upload to GitHub
+        const createResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${session.accessToken}`,
+              "Content-Type": "application/json",
+              "User-Agent": "MetaSync-App"
+            },
+            body: JSON.stringify({
+              message: `Upload ${file.name} via MetaSync`,
+              content: fileContent,
+              branch: repository?.default_branch || "main"
+            })
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.text();
+          throw new Error(`Failed to upload ${file.name}: ${createResponse.status} - ${errorData}`);
+        }
+
+        // Update progress to complete
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+      }
+
+      // Close modal and refresh files
+      setShowUploadModal(false);
+      setSelectedFiles([]);
+      
+      if (session.accessToken) {
+        await fetchFiles(owner, repo, currentPath, session.accessToken);
+      }
+
+    } catch (err) {
+      console.error("Error uploading files:", err);
+      setUploadError(err instanceof Error ? err.message : "Failed to upload files");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Delete file function
+  const deleteFile = async (file: FileItem) => {
+    if (!session?.accessToken) return;
+
+    const confirmMessage = file.type === "dir" 
+      ? `Are you sure you want to delete the folder "${file.name}" and all its contents? This action cannot be undone.`
+      : `Are you sure you want to delete "${file.name}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      if (file.type === "dir") {
+        // For directories, we need to delete all files recursively
+        // GitHub API doesn't support directory deletion directly
+        setError("Directory deletion is not yet supported. Please delete files individually or use GitHub directly.");
+        return;
+      }
+
+      // Get file SHA for deletion
+      const fileResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+            "User-Agent": "MetaSync-App"
+          }
+        }
+      );
+
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to get file details: ${fileResponse.status}`);
+      }
+
+      const fileData = await fileResponse.json();
+
+      // Delete file
+      const deleteResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "MetaSync-App"
+          },
+          body: JSON.stringify({
+            message: `Delete ${file.name} via MetaSync`,
+            sha: fileData.sha,
+            branch: repository?.default_branch || "main"
+          })
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.text();
+        throw new Error(`Failed to delete file: ${deleteResponse.status} - ${errorData}`);
+      }
+
+      // Refresh files list
+      if (session.accessToken) {
+        await fetchFiles(owner, repo, currentPath, session.accessToken);
+      }
+
+      // If we were viewing this file, close it
+      if (fileContent && fileContent.path === file.path) {
+        setFileContent(null);
+        setIsEditMode(false);
+        setIsEditingSEO(false);
+        setSeoData(null);
+      }
+
+    } catch (err) {
+      console.error("Error deleting file:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete file");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear selected files after upload or on cancel
+  useEffect(() => {
+    if (!showUploadModal) {
+      setSelectedFiles([]);
+      setUploadError(null);
+      setUploadProgress({});
+    }
+  }, [showUploadModal]);
+
+  // File upload modal close handler
+  const handleUploadModalClose = () => {
+    setShowUploadModal(false);
+    setSelectedFiles([]);
+    setUploadError(null);
+    setUploadProgress({});
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       {/* Header */}
@@ -1654,7 +1773,6 @@ Your project license.
           )}
         </div>
         <div className="text-neutral-400 text-sm">
-          <div>Current Date and Time: {currentTime}</div>
           <div>Current User: {session?.user?.name || "Unknown"}</div>
         </div>
       </header>
@@ -1806,14 +1924,6 @@ Your project license.
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                         </svg>
                         {repository.forks_count}
-                      </div>
-                      
-                      <div>
-                        Created: {formatDate(repository.created_at)}
-                      </div>
-                      
-                      <div>
-                        Updated: {formatDate(repository.updated_at)}
                       </div>
                     </div>
                   </div>
@@ -2103,65 +2213,83 @@ Your project license.
                       </div>
                     </div>
                     
-                    {/* Create File Button with Dropdown */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowCreateFileMenu(!showCreateFileMenu)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
-                      >
+                    {/* Upload and Create File Buttons */}
+                    <div className="flex items-center gap-2">
+                      {/* File Upload Button */}
+                      <label className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm cursor-pointer">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        Create File
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      
-                      {showCreateFileMenu && (
-                        <div className="absolute right-0 mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
-                          <div className="py-1">
-                            <button
-                              onClick={() => handleFilePresetSelect("custom")}
-                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">Custom File</div>
-                                <div className="text-xs text-neutral-400">Create any type of file</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => handleFilePresetSelect("seo")}
-                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">SEO File</div>
-                                <div className="text-xs text-neutral-400">Pre-configured SEO metadata template</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => handleFilePresetSelect("readme")}
-                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                            >
-                              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div>
-                                <div className="font-medium">README.md</div>
-                                <div className="text-xs text-neutral-400">Project documentation template</div>
-                              </div>
-                            </button>
+                        Upload Files
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept="*/*"
+                        />
+                      </label>
+
+                      {/* Create File Button with Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowCreateFileMenu(!showCreateFileMenu)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Create File
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        
+                        {showCreateFileMenu && (
+                          <div className="absolute right-0 mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
+                            <div className="py-1">
+                              <button
+                                onClick={() => handleFilePresetSelect("custom")}
+                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                              >
+                                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">Custom File</div>
+                                  <div className="text-xs text-neutral-400">Create any type of file</div>
+                                </div>
+                              </button>
+                              
+                              <button
+                                onClick={() => handleFilePresetSelect("seo")}
+                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                              >
+                                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">SEO File</div>
+                                  <div className="text-xs text-neutral-400">Pre-configured SEO metadata template</div>
+                                </div>
+                              </button>
+                              
+                              <button
+                                onClick={() => handleFilePresetSelect("readme")}
+                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                              >
+                                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <div>
+                                  <div className="font-medium">README.md</div>
+                                  <div className="text-xs text-neutral-400">Project documentation template</div>
+                                </div>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2177,22 +2305,38 @@ Your project license.
                     }).map((file) => (
                       <div 
                         key={file.sha}
-                        className="p-3 hover:bg-neutral-800/50 cursor-pointer"
+                        className="p-3 hover:bg-neutral-800/50 cursor-pointer group"
                         onClick={() => handleFileClick(file)}
                       >
-                        <div className="flex items-center">
-                          <div className="w-7 flex justify-center mr-3">
-                            {getFileIcon(file)}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-7 flex justify-center mr-3">
+                              {getFileIcon(file)}
+                            </div>
+                            <div className="text-neutral-200">
+                              {file.name}
+                              {isSEOFile(file.name, file.path) && (
+                                <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
+                                  SEO
+                                </span>
+                              )}
+                              {!isSEOFile(file.name, file.path) && getFileExtensionBadge(file)}
+                            </div>
                           </div>
-                          <div className="text-neutral-200">
-                            {file.name}
-                            {isSEOFile(file.name, file.path) && (
-                              <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
-                                SEO
-                              </span>
-                            )}
-                            {!isSEOFile(file.name, file.path) && getFileExtensionBadge(file)}
-                          </div>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFile(file);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-neutral-400 hover:text-red-400 transition-opacity"
+                            title={`Delete ${file.type === 'dir' ? 'folder' : 'file'}`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     ))
@@ -2662,7 +2806,7 @@ Your project license.
                                     {
                                         method: "PUT",
                                         headers: {
-                                        Authorization: `Bearer ${session?.accessToken}`,
+                                        Authorization: `Bearer ${session?.accessToken ?? ""}`,
                                         "Content-Type": "application/json",
                                         "User-Agent": "MetaSync-App"
                                         },
