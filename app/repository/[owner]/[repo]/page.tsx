@@ -238,7 +238,7 @@ useEffect(() => {
   }, 60000);
   
   return () => clearInterval(timer);
-}, [status, router]);
+}, [status, router, session]); // Added missing dependencies
 
   // Enhanced error handling function
   const handleError = (err: any, context: string = "") => {
@@ -432,7 +432,7 @@ useEffect(() => {
   }, 60000);
   
   return () => clearInterval(timer);
-}, [status, router]);
+}, [status, router, session]); // Added missing dependencies
 
   const inviteCollaborator = async () => {
     if (!session?.accessToken || !inviteEmail) return;
@@ -1613,6 +1613,29 @@ Your project license.
     setCreateFileError(null);
   }
 
+  // Function to handle custom field addition
+  const handleAddCustomField = () => {
+    if (!customFieldName.trim()) return;
+    
+    let fieldValue: any = "";
+    switch (customFieldType) {
+      case "text":
+        fieldValue = "";
+        break;
+      case "textarea":
+        fieldValue = "";
+        break;
+      case "array":
+        fieldValue = [];
+        break;
+      case "object":
+        fieldValue = {};
+        break;
+    }
+    
+    addSEOField(customFieldName.trim(), fieldValue);
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       {/* Header */}
@@ -1891,29 +1914,29 @@ Your project license.
                                   onClick={() => handleAddPredefinedField("og_title")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Title
+                                  Title
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_description")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Description
+                                  Description
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_image")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Image
+                                  Image
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_url")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG URL
+                                  URL
                                 </button>
                                 
                                 <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                  SEO Technical
+                                  Technical SEO
                                 </div>
                                 <button
                                   onClick={() => handleAddPredefinedField("canonical_url")}
@@ -2193,7 +2216,7 @@ Your project license.
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
                   </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create File</h2>
