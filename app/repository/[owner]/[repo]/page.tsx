@@ -1510,31 +1510,27 @@ const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set to false if we're leaving the drop zone completely
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragOver(false);
-    }
-  };
+const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragOver(true);
+};
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragOver(false);
+};
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-      setShowUploadModal(true);
-    }
-  };
+const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragOver(false);
+  const files = Array.from(e.dataTransfer.files);
+  if (files.length > 0) {
+    handleFileSelect({ target: { files } } as any);
+  }
+};
 
   // File input handler
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2187,7 +2183,16 @@ const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
               </div>
             ) : (
               /* File browser */
-              <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
+              <div className={`relative bg-neutral-900 border border-neutral-800 rounded-lg${isDragOver ? " ring-2 ring-blue-500" : ""}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    {isDragOver && (
+                      <div className="absolute inset-0 bg-blue-900/60 flex items-center justify-center z-50 pointer-events-none rounded-lg">
+                        <span className="text-white text-lg font-bold">Drop files to upload</span>
+                      </div>
+                    )}
                 <div className="border-b border-neutral-800 p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2893,7 +2898,7 @@ const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
       {/* Custom Field Dialog */}
       {showCustomFieldDialog && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-md">
+          <div className="relative bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-md">
             <div className="flex items-center justify-between border-b border-neutral-800 p-4">
               <h3 className="text-lg font-semibold text-white">Add Custom Field</h3>
               <button 
