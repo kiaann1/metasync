@@ -1522,13 +1522,68 @@ const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
   setIsDragOver(false);
 };
 
-const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
   e.preventDefault();
   e.stopPropagation();
   setIsDragOver(false);
+  if (!session?.accessToken) return;
+
   const files = Array.from(e.dataTransfer.files);
   if (files.length > 0) {
-    handleFileSelect({ target: { files } } as any);
+    setIsUploading(true);
+    setUploadError(null);
+
+    for (const file of files) {
+      try {
+        const fileName = file.name;
+        const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
+        const content = await file.text();
+
+        // Check if file already exists
+        const existingFileResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.accessToken}`,
+              "User-Agent": "MetaSync-App"
+            }
+          }
+        );
+        if (existingFileResponse.ok) {
+          setUploadError(`A file named "${fileName}" already exists in this location.`);
+          continue;
+        }
+
+        // Create the file in the repo
+        const createResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${session.accessToken}`,
+              "Content-Type": "application/json",
+              "User-Agent": "MetaSync-App"
+            },
+            body: JSON.stringify({
+              message: `Add ${fileName} via drag and drop`,
+              content: btoa(content),
+              branch: repository?.default_branch || "main"
+            })
+          }
+        );
+        if (!createResponse.ok) {
+          setUploadError(`Failed to upload "${fileName}".`);
+        }
+      } catch (err) {
+        setUploadError("Failed to upload one or more files.");
+      }
+    }
+
+    setIsUploading(false);
+    // Refresh file list after upload
+    if (session.accessToken) {
+      await fetchFiles(owner, repo, currentPath, session.accessToken);
+    }
   }
 };
 
