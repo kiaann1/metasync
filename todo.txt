@@ -23,6 +23,8 @@ METASYNC PROJECT TODO LIST
 ✅ File content viewing and preview
 ✅ Text file editing capabilities
 ✅ File creation with templates (custom, README, SEO)
+✅ Drag-and-drop file upload
+✅ Manual file upload with progress and error feedback
 
 ### SEO Features
 ✅ SEO file detection (.seo.json and seo.json)
@@ -31,6 +33,7 @@ METASYNC PROJECT TODO LIST
 ✅ SEO file creation with guided form
 ✅ JSON validation for SEO files
 ✅ Dynamic field addition for SEO content with predefined templates
+✅ Dynamic SEO file editing and creation with custom fields
 
 ### Collaborator Management
 ✅ View repository collaborators
@@ -38,6 +41,7 @@ METASYNC PROJECT TODO LIST
 ✅ Remove collaborators
 ✅ Role-based permissions (Full Access, Content Editor, SEO Manager, Reviewer)
 ✅ GitHub permission mapping
+✅ Enhanced collaborator management: invite, remove, and change roles with custom role mapping
 
 ### UI/UX
 ✅ Dark theme design
@@ -47,6 +51,7 @@ METASYNC PROJECT TODO LIST
 ✅ Modal dialogs for file creation and settings
 ✅ File type badges and icons
 ✅ Breadcrumb navigation
+✅ Improved UI/UX for file browser, file preview, and settings modal
 
 ### Error Handling
 ✅ Enhanced error messages
@@ -54,6 +59,7 @@ METASYNC PROJECT TODO LIST
 ✅ Network error detection
 ✅ Validation error display
 ✅ Context-specific error messages
+✅ Improved error handling and validation for file and collaborator management
 
 🔄 IN PROGRESS / NEEDS IMPROVEMENT
 ---------------------------------
@@ -87,7 +93,6 @@ METASYNC PROJECT TODO LIST
 --------------------------
 
 ### Advanced File Operations
-❌ Drag & drop file upload
 ❌ File copy/move operations
 ❌ Binary file preview (images, PDFs)
 ❌ File compression/archive handling
