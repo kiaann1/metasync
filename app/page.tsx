@@ -222,7 +222,7 @@ export default function Home() {
             <div className="order-1 md:order-2">
               <h3 className="text-3xl font-semibold mb-4">Advanced SEO Management</h3>
               <p className="text-neutral-300 text-lg mb-6">
-                Optimize your content for search engines with our specialized SEO editor. Create and manage metadata files with an intuitive form interface.
+                Optimize your content for search engines with our specialised SEO editor. Create and manage metadata files with an intuitive form interface.
               </p>
               <ul className="space-y-2 text-neutral-300">
                 <li className="flex items-center"><span className="text-purple-400 mr-2">✓</span> Visual SEO form editor</li>
@@ -287,7 +287,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-neutral-800 py-8 px-4 text-center text-neutral-400">
         <div className="max-w-6xl mx-auto">
-          <p>&copy; 2024 MetaSync. Built with ❤️ using Next.js and GitHub API.</p>
+          <p>&copy; 2025 kiaann1. Built using Next.js and GitHub API.</p>
         </div>
       </footer>
     </div>
