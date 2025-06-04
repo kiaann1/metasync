@@ -164,11 +164,13 @@ PRIORITY ORDER
 1. File deletion and renaming (high priority)
 2. Folder creation (high priority)
 3. File upload functionality (high priority)
-4. Search within repository (medium priority)
-5. SEO preview improvements (medium priority)
-6. Performance optimizations (medium priority)
-7. Advanced collaboration features (low priority)
-8. API development (low priority)
+4. Show image preview when clicking on PNG or any image file (high priority)
+5. Only show "Add Fields" button for files with .seo.json extension (high priority)
+6. Search within repository (medium priority)
+7. SEO preview improvements (medium priority)
+8. Performance optimizations (medium priority)
+9. Advanced collaboration features (low priority)
+10. API development (low priority)
 
 NOTES
 -----
