@@ -2200,7 +2200,7 @@ Your project license.
                         </div>
                       </div>
                     ))
-                  : (
+                  ): (
                     <div className="py-16 text-center text-neutral-400">
                       This folder is empty
                     </div>
