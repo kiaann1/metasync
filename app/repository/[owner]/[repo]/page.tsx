@@ -119,6 +119,12 @@ export default function RepositoryPage() {
     "content-main": ""
   });
 
+  // Add field states for SEO editor
+  const [showAddFieldMenu, setShowAddFieldMenu] = useState(false);
+  const [showCustomFieldDialog, setShowCustomFieldDialog] = useState(false);
+  const [customFieldName, setCustomFieldName] = useState("");
+  const [customFieldType, setCustomFieldType] = useState<"text" | "textarea" | "array" | "object">("text");
+
     // Add these interfaces to your file
 interface Collaborator {
   id: number;
@@ -1053,39 +1059,113 @@ Your project license.
     }
   };
 
-  // Function to cancel Create File modal
-  const handleCancelCreateFile = () => {
-    setShowCreateFile(false);
-    setNewFileName("");
-    setNewFileContent("");
-    setCreateFileError(null);
+  // Function to add a new field to SEO data
+  const addSEOField = (fieldName: string, fieldValue: any) => {
+    setSeoFormData(prev => ({
+      ...prev,
+      [fieldName]: fieldValue
+    }));
+    setShowAddFieldMenu(false);
+    setShowCustomFieldDialog(false);
+    setCustomFieldName("");
+    setCustomFieldType("text");
   };
 
-  // Function to cancel SEO file creation
-  const handleCancelCreateSEO = () => {
-    setShowCreateSEO(false);
-    setNewFileName("");
-    setNewSEOData({
-      meta_title: "",
-      meta_description: "",
-      meta_keywords: "",
-      h1: "",
-      h2: "",
-      "content-main": ""
-    });
-    setCreateFileError(null);
+  // Function to handle predefined SEO field additions
+  const handleAddPredefinedField = (fieldType: string) => {
+    switch (fieldType) {
+      case "og_title":
+        addSEOField("og_title", "");
+        break;
+      case "og_description":
+        addSEOField("og_description", "");
+        break;
+      case "og_image":
+        addSEOField("og_image", "");
+        break;
+      case "og_url":
+        addSEOField("og_url", "");
+        break;
+      case "twitter_card":
+        addSEOField("twitter_card", "summary_large_image");
+        break;
+      case "twitter_title":
+        addSEOField("twitter_title", "");
+        break;
+      case "twitter_description":
+        addSEOField("twitter_description", "");
+        break;
+      case "twitter_image":
+        addSEOField("twitter_image", "");
+        break;
+      case "canonical_url":
+        addSEOField("canonical_url", "");
+        break;
+      case "robots":
+        addSEOField("robots", "index,follow");
+        break;
+      case "structured_data":
+        addSEOField("structured_data", {
+          "@context": "https://schema.org",
+          "@type": "WebPage"
+        });
+        break;
+      case "content_section":
+        addSEOField(`content_section_${Date.now()}`, "");
+        break;
+      case "faq":
+        addSEOField("faq", [
+          {
+            question: "",
+            answer: ""
+          }
+        ]);
+        break;
+      case "custom":
+        setShowCustomFieldDialog(true);
+        break;
+      default:
+        break;
+    }
+    setShowAddFieldMenu(false);
   };
 
-  // Format dates in a more readable format
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Unknown date";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  // Function to handle custom field addition
+  const handleAddCustomField = () => {
+    if (!customFieldName.trim()) return;
+    
+    let fieldValue: any = "";
+    switch (customFieldType) {
+      case "text":
+        fieldValue = "";
+        break;
+      case "textarea":
+        fieldValue = "";
+        break;
+      case "array":
+        fieldValue = [];
+        break;
+      case "object":
+        fieldValue = {};
+        break;
+    }
+    
+    addSEOField(customFieldName.trim(), fieldValue);
   };
+
+  // Fix for empty initial state
+  useEffect(() => {
+    if (Object.keys(seoFormData).length === 0) {
+      setSeoFormData({
+        meta_title: "",
+        meta_description: "",
+        meta_keywords: "",
+        h1: "",
+        h2: "",
+        "content-main": ""
+      });
+    }
+  }, [seoFormData]);
 
   // Check if a file is a SEO file based on name or path
   const isSEOFile = (filename: string, path: string) => {
@@ -1488,12 +1568,48 @@ Your project license.
     return null;
   };
 
+  // Helper function to format ISO date strings
+  function formatDate(dateString: string | null | undefined): string {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Invalid date";
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
         <div className="animate-pulse text-neutral-400">Loading repository data...</div>
       </div>
     );
+  }
+
+  function handleCancelCreateSEO() {
+      setShowCreateSEO(false);
+      setNewFileName("");
+      setNewSEOData({
+        meta_title: "",
+        meta_description: "",
+        meta_keywords: "",
+        h1: "",
+        h2: "",
+        "content-main": ""
+      });
+      setCreateFileError(null);
+    }
+  
+  // Add missing function to handle closing the Create File modal
+  function handleCancelCreateFile() {
+    setShowCreateFile(false);
+    setNewFileName("");
+    setNewFileContent("");
+    setCreateFileError(null);
   }
 
   return (
@@ -1742,7 +1858,7 @@ Your project license.
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    {seoData && !isEditingSEO && (
+                    {seoData && ! isEditingSEO && (
                       <button 
                         onClick={() => setIsEditingSEO(true)}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
@@ -1753,6 +1869,128 @@ Your project license.
                     
                     {isEditingSEO && (
                       <>
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowAddFieldMenu(!showAddFieldMenu)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Fields
+                          </button>
+                          
+                          {showAddFieldMenu && (
+                            <div className="absolute right-0 mt-2 w-72 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
+                              <div className="py-1">
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700">
+                                  Open Graph Fields
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_title")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  OG Title
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_description")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  OG Description
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_image")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  OG Image
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_url")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  OG URL
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Twitter Card Fields
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("twitter_card")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Twitter Card Type
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("twitter_title")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Twitter Title
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("twitter_description")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Twitter Description
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("twitter_image")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Twitter Image
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  SEO Technical
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("canonical_url")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Canonical URL
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("robots")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Robots Meta
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("structured_data")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Structured Data (JSON-LD)
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Content Fields
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("content_section")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Add Content Section
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("faq")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  FAQ Section
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Custom
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("custom")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Add Custom Field
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <button 
                           onClick={handleSaveSEOContent}
                           className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
@@ -1819,7 +2057,6 @@ Your project license.
                         <h3 className="text-lg font-medium text-white mb-2">SEO Content Preview</h3>
                         <p className="text-neutral-300 text-sm">This file contains SEO metadata for your website. Use the "Edit SEO Content" button to make changes safely.</p>
                       </div>
-                      
                       
                       <div className="grid gap-6">
                         {Object.entries(seoData).map(([key, value]) => 
@@ -1963,8 +2200,7 @@ Your project license.
                         </div>
                       </div>
                     ))
-                  ) : (
-                   
+                  : (
                     <div className="py-16 text-center text-neutral-400">
                       This folder is empty
                     </div>
@@ -1985,7 +2221,7 @@ Your project license.
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+                  </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create File</h2>
               </div>
@@ -2513,6 +2749,87 @@ Your project license.
     </div>
   </div>
 )}
+
+      {/* Custom Field Dialog */}
+      {showCustomFieldDialog && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-neutral-800 p-4">
+              <h3 className="text-lg font-semibold text-white">Add Custom Field</h3>
+              <button 
+                onClick={() => {
+                  setShowCustomFieldDialog(false);
+                  setCustomFieldName("");
+                  setCustomFieldType("text");
+                }}
+                className="text-neutral-400 hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Field Name
+                </label>
+                <input
+                  type="text"
+                  value={customFieldName}
+                  onChange={(e) => setCustomFieldName(e.target.value)}
+                  placeholder="e.g., custom_meta_tag"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="text-xs text-neutral-400 mt-1">
+                  Use lowercase letters, numbers, and underscores only
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Field Type
+                </label>
+                <select
+                  value={customFieldType}
+                  onChange={(e) => setCustomFieldType(e.target.value as "text" | "textarea" | "array" | "object")}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="text">Text Input (short text)</option>
+                  <option value="textarea">Text Area (long text)</option>
+                  <option value="array">Array (list of items)</option>
+                  <option value="object">Object (nested structure)</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center justify-end gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowCustomFieldDialog(false);
+                    setCustomFieldName("");
+                    setCustomFieldType("text");
+                  }}
+                  className="px-4 py-2 text-neutral-300 hover:text-white border border-neutral-700 rounded-lg hover:bg-neutral-800 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddCustomField}
+                  disabled={!customFieldName.trim()}
+                  className={`px-4 py-2 rounded-lg font-medium transition ${
+                    !customFieldName.trim()
+                      ? "bg-neutral-700 text-neutral-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  Add Field
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
