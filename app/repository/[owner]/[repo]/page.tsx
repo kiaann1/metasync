@@ -1086,40 +1086,14 @@ Your project license.
       case "og_url":
         addSEOField("og_url", "");
         break;
-      case "twitter_card":
-        addSEOField("twitter_card", "summary_large_image");
-        break;
-      case "twitter_title":
-        addSEOField("twitter_title", "");
-        break;
-      case "twitter_description":
-        addSEOField("twitter_description", "");
-        break;
-      case "twitter_image":
-        addSEOField("twitter_image", "");
-        break;
       case "canonical_url":
         addSEOField("canonical_url", "");
-        break;
-      case "robots":
-        addSEOField("robots", "index,follow");
         break;
       case "structured_data":
         addSEOField("structured_data", {
           "@context": "https://schema.org",
           "@type": "WebPage"
         });
-        break;
-      case "content_section":
-        addSEOField(`content_section_${Date.now()}`, "");
-        break;
-      case "faq":
-        addSEOField("faq", [
-          {
-            question: "",
-            answer: ""
-          }
-        ]);
         break;
       case "custom":
         setShowCustomFieldDialog(true);
@@ -1128,6 +1102,17 @@ Your project license.
         break;
     }
     setShowAddFieldMenu(false);
+  };
+
+    // Function to delete SEO field
+  const deleteSEOField = (fieldKey: string) => {
+    if (confirm(`Are you sure you want to delete the "${fieldKey}" field?`)) {
+      setSeoFormData(prev => {
+        const newData = { ...prev };
+        delete newData[fieldKey];
+        return newData;
+      });
+    }
   };
 
   // Function to handle custom field addition
@@ -1890,25 +1875,25 @@ Your project license.
                                   onClick={() => handleAddPredefinedField("og_title")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Title
+                                   Title
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_description")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Description
+                                   Description
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_image")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG Image
+                                   Image
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_url")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  OG URL
+                                   URL
                                 </button>
                                 
                                 <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
