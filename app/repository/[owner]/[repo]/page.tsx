@@ -1180,7 +1180,7 @@ Your project license.
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+            </svg>
             </button>
           </div>
           <textarea
@@ -1210,7 +1210,6 @@ Your project license.
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
             </button>
           </div>
           <input
@@ -2421,7 +2420,6 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
-                  </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create File</h2>
               </div>
@@ -3032,56 +3030,4 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
       )}
     </div>
   );
-}
-
-// Instead of importing content files, fetch them at runtime:
-interface ServerSidePropsContext {
-  params: {
-    owner: string;
-    repo: string;
-  };
-}
-
-interface ServerSidePropsReturn {
-  props?: {
-    repository: Repository;
-    files: FileItem[];
-  };
-  notFound?: boolean;
-}
-
-export async function getServerSideProps(context: ServerSidePropsContext): Promise<ServerSidePropsReturn> {
-  const { owner, repo } = context.params;
-
-  // Fetch repository details
-  const repoResponse: Response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers: {
-      "User-Agent": "MetaSync-App"
-    }
-  });
-
-  if (!repoResponse.ok) {
-    return { notFound: true };
-  }
-
-  const repository: Repository = await repoResponse.json();
-
-  // Fetch files in the root directory
-  const filesResponse: Response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/`, 
-    {
-      headers: {
-        "User-Agent": "MetaSync-App"
-      }
-    }
-  );
-
-  const files: FileItem[] | FileItem = filesResponse.ok ? await filesResponse.json() : [];
-
-  return { 
-    props: { 
-      repository,
-      files: Array.isArray(files) ? files : [files]
-    } 
-  };
 }
