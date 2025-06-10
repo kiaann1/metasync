@@ -72,6 +72,7 @@ export default function RepositoryPage() {
   const [errorType, setErrorType] = useState<"general" | "permission" | "validation" | "network" | null>(null);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [currentPath, setCurrentPath] = useState("");
+  const [currentTime, setCurrentTime] = useState<string>("");
   const [fileContent, setFileContent] = useState<{ content: string; name: string; path: string } | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState("");
@@ -123,14 +124,6 @@ export default function RepositoryPage() {
   const [showCustomFieldDialog, setShowCustomFieldDialog] = useState(false);
   const [customFieldName, setCustomFieldName] = useState("");
   const [customFieldType, setCustomFieldType] = useState<"text" | "textarea" | "array" | "object">("text");
-
-  // Add drag and drop states
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
     // Add these interfaces to your file
 interface Collaborator {
@@ -216,13 +209,36 @@ const customRoles: CustomRole[] = [
 
 // (Moved below fetchCollaborators declaration)
 
-// Update the main useEffect for authentication
+// Fix the date formatting in the header section
+  const formatCurrentTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${hours}:${minutes}:${seconds} ${day}-${month}-${year} `;
+  };
+
+// Update the main useEffect for authentication and time
 useEffect(() => {
   if (status === "unauthenticated") {
     router.push("/signin");
     return;
   }
-}, [status, router, session]);
+
+  // Set current time using the proper formatting function
+  setCurrentTime(formatCurrentTime());
+
+  // Optional: Update the time every minute
+  const timer = setInterval(() => {
+    setCurrentTime(formatCurrentTime());
+  }, 60000);
+  
+  return () => clearInterval(timer);
+}, [status, router]);
 
   // Enhanced error handling function
   const handleError = (err: any, context: string = "") => {
@@ -359,7 +375,7 @@ useEffect(() => {
         `https://api.github.com/repos/${owner}/${repo}/collaborators`,
         {
           headers: {
-            Authorization: `Bearer ${session?.accessToken ?? ""}`,
+            Authorization: `Bearer ${session.accessToken}`,
             "User-Agent": "MetaSync-App"
           }
         }
@@ -400,12 +416,23 @@ useEffect(() => {
     }
   }, [showSettings, activeTab, fetchCollaborators]);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/signin");
-    }
-  }, [status, router]);
+// Update the main useEffect for authentication and time
+useEffect(() => {
+  if (status === "unauthenticated") {
+    router.push("/signin");
+    return;
+  }
+
+  // Set current time using the proper formatting function
+  setCurrentTime(formatCurrentTime());
+
+  // Optional: Update the time every minute
+  const timer = setInterval(() => {
+    setCurrentTime(formatCurrentTime());
+  }, 60000);
+  
+  return () => clearInterval(timer);
+}, [status, router]);
 
   const inviteCollaborator = async () => {
     if (!session?.accessToken || !inviteEmail) return;
@@ -435,7 +462,7 @@ useEffect(() => {
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${session?.accessToken ?? ""}`,
+            Authorization: `Bearer ${session.accessToken}`,
             "Content-Type": "application/json",
             "User-Agent": "MetaSync-App"
           },
@@ -477,7 +504,7 @@ const removeCollaborator = async (username: string) => {
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${session?.accessToken ?? ""}`,
+          Authorization: `Bearer ${session.accessToken}`,
           "User-Agent": "MetaSync-App"
         }
       }
@@ -497,6 +524,17 @@ const removeCollaborator = async (username: string) => {
     setIsLoading(false);
   }
 };
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/signin");
+    }
+    
+    // Set current time
+    const now = new Date();
+    setCurrentTime(now.toISOString().replace('T', ' ').substring(0, 19));
+  }, [status, router]);
 
   // Get repository details and files
   useEffect(() => {
@@ -1051,20 +1089,11 @@ Your project license.
       case "canonical_url":
         addSEOField("canonical_url", "");
         break;
-      case "robots":
-        addSEOField("robots", "index,follow");
-        break;
       case "structured_data":
         addSEOField("structured_data", {
           "@context": "https://schema.org",
           "@type": "WebPage"
         });
-        break;
-      case "content_section":
-        addSEOField("content_section", "")        
-        break;
-      case "faq":
-        addSEOField("faq", []);
         break;
       case "custom":
         setShowCustomFieldDialog(true);
@@ -1075,7 +1104,7 @@ Your project license.
     setShowAddFieldMenu(false);
   };
 
-  // Function to delete SEO field
+    // Function to delete SEO field
   const deleteSEOField = (fieldKey: string) => {
     if (confirm(`Are you sure you want to delete the "${fieldKey}" field?`)) {
       setSeoFormData(prev => {
@@ -1085,6 +1114,43 @@ Your project license.
       });
     }
   };
+
+  // Function to handle custom field addition
+  const handleAddCustomField = () => {
+    if (!customFieldName.trim()) return;
+    
+    let fieldValue: any = "";
+    switch (customFieldType) {
+      case "text":
+        fieldValue = "";
+        break;
+      case "textarea":
+        fieldValue = "";
+        break;
+      case "array":
+        fieldValue = [];
+        break;
+      case "object":
+        fieldValue = {};
+        break;
+    }
+    
+    addSEOField(customFieldName.trim(), fieldValue);
+  };
+
+  // Fix for empty initial state
+  useEffect(() => {
+    if (Object.keys(seoFormData).length === 0) {
+      setSeoFormData({
+        meta_title: "",
+        meta_description: "",
+        meta_keywords: "",
+        h1: "",
+        h2: "",
+        "content-main": ""
+      });
+    }
+  }, [seoFormData]);
 
   // Check if a file is a SEO file based on name or path
   const isSEOFile = (filename: string, path: string) => {
@@ -1115,21 +1181,10 @@ Your project license.
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Nested object
       return (
-        <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4 relative">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-purple-300 capitalize">
-              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-            </h4>
-            <button
-              onClick={() => deleteSEOField(key)}
-              className="text-red-400 hover:text-red-300 p-1"
-              title="Delete field"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+        <div key={fullKey} className="space-y-4 border border-neutral-700 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-purple-300 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </h4>
           <div className="space-y-3 ml-4">
             {Object.entries(value).map(([nestedKey, nestedValue]) => 
               renderSEOFormField(nestedKey, nestedValue, fullKey)
@@ -1140,21 +1195,10 @@ Your project license.
     } else if (Array.isArray(value)) {
       // Array handling
       return (
-        <div key={fullKey} className="relative">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-neutral-300 capitalize">
-              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-            </label>
-            <button
-              onClick={() => deleteSEOField(key)}
-              className="text-red-400 hover:text-red-300 p-1"
-              title="Delete field"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
           <textarea
             value={Array.isArray(value) ? value.join(', ') : value}
             onChange={(e) => updateSEOFormData(fullKey, e.target.value.split(', ').filter(Boolean))}
@@ -1168,21 +1212,10 @@ Your project license.
     } else if (typeof value === 'string' && value.length > 50) {
       // Long text - use textarea
       return (
-        <div key={fullKey} className="relative">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-neutral-300 capitalize">
-              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-            </label>
-            <button
-              onClick={() => deleteSEOField(key)}
-              className="text-red-400 hover:text-red-300 p-1"
-              title="Delete field"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            </button>
-          </div>
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
           <textarea
             value={value}
             onChange={(e) => updateSEOFormData(fullKey, e.target.value)}
@@ -1198,20 +1231,10 @@ Your project license.
     } else {
       // Short text, number, boolean - use input
       return (
-        <div key={fullKey} className="relative">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-neutral-300 capitalize">
-              {key.replace(/_/g, ' ').replace(/-/g, ' ')}
-            </label>
-            <button
-              onClick={() => deleteSEOField(key)}
-              className="text-red-400 hover:text-red-300 p-1"
-              title="Delete field"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </button>
-          </div>
+        <div key={fullKey}>
+          <label className="block text-sm font-medium text-neutral-300 mb-2 capitalize">
+            {key.replace(/_/g, ' ').replace(/-/g, ' ')}
+          </label>
           <input
             type={typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text'}
             value={typeof value === 'boolean' ? undefined : value}
@@ -1317,145 +1340,240 @@ Your project license.
     return textExtensions.some(ext => lower.endsWith(ext));
   };
 
+  // Helper function to get file icons based on file type
   const getFileIcon = (file: FileItem): React.ReactNode => {
-  // SVG Components
-  const icons = {
-    folder: (
-      <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-      </svg>
-    ),
-    seo: (
-      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
-      </svg>
-    ),
-    md: (
-      <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    code: (
-      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
-      </svg>
-    ),
-    txt: (
-      <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-6 8h6a2 2 0 002-2V7.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0012.172 1H6a2 2 0 00-2 2v16a2 2 0 002 2z" />
-      </svg>
-    ),
-    image: (
-      <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
-        <circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/>
-        <path stroke="currentColor" strokeWidth={2} d="M21 19l-5.5-7-4.5 6-2.5-3L3 19"/>
-      </svg>
-    ),
-    pdf: (
-      <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
-        <text x="7" y="16" fontSize="8" fill="currentColor">PDF</text>
-      </svg>
-    ),
-    default: (
+    // Directory
+    if (file.type === "dir") {
+      return (
+        <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h3.172a2 2 0 011.414.586l1.828 1.828A2 2 0 0012.828 8H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+        </svg>
+      );
+    }
+
+    // SEO file (both .seo.json and seo.json)
+    if (file.name.endsWith(".seo.json") || file.name === "seo.json") {
+      return (
+        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      );
+    }
+
+    // Markdown file
+    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
+      return (
+        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
+        </svg>
+      );
+    }
+
+    // Code files
+    if (/\.(js|jsx|ts|tsx|json|yml|yaml|css|scss|html|xml|env)$/i.test(file.name)) {
+      return (
+        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
+        </svg>
+      );
+    }
+
+    // Text file
+    if (file.name.endsWith(".txt")) {
+      return (
+        <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-6 8h6a2 2 0 002-2V7.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0012.172 1H6a2 2 0 00-2 2v16a2 2 0 002 2z" />
+        </svg>
+      );
+    }
+
+    // Image file
+    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
+      return (
+        <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/>
+          <path stroke="currentColor" strokeWidth={2} d="M21 19l-5.5-7-4.5 6-2.5-3L3 19"/>
+        </svg>
+      );
+    }
+
+    // PDF file
+    if (file.name.endsWith(".pdf")) {
+      return (
+        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect width="18" height="14" x="3" y="5" rx="2" strokeWidth={2} stroke="currentColor" fill="none"/>
+          <text x="7" y="16" fontSize="8" fill="currentColor">PDF</text>
+        </svg>
+      );
+    }
+
+    // Default file icon
+    return (
       <svg className="w-6 h-6 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 10.414V19a2 2 0 01-2 2z" />
       </svg>
-    )
-  };
-
-  const lowerName = file.name.toLowerCase();
-
-  if (file.type === "dir") return icons.folder;
-  if (file.name.endsWith(".seo.json") || lowerName === "seo.json") return icons.seo;
-  if (lowerName === "readme.md" || lowerName.endsWith(".md")) return icons.md;
-
-  // Code-related extensions
-  if (/\.(js|jsx|ts|tsx|json|yml|yaml|css|scss|html|xml|env)$/i.test(file.name)) return icons.code;
-
-  if (file.name.endsWith(".txt")) return icons.txt;
-
-  // Image extensions
-  if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) return icons.image;
-
-  if (file.name.endsWith(".pdf")) return icons.pdf;
-
-  return icons.default;
-};
-
-const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
-  if (file.type === "dir") return null;
-
-  const lowerName = file.name.toLowerCase();
-
-  // Special cases
-  if (file.name.endsWith(".seo.json") || lowerName === "seo.json") {
-    return (
-      <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
-        SEO
-      </span>
-    );
-  }
-  if (lowerName === "readme.md" || lowerName.endsWith(".md")) {
-    return (
-      <span className="ml-2 text-xs bg-green-600 text-green-100 px-1.5 py-0.5 rounded">
-        MD
-      </span>
     );
   }
 
-  // Mapping of extension to badge config
-  const extBadges: { [key: string]: { label: string; color: string; text: string } } = {
-    js:   { label: "JS",   color: "bg-blue-600",    text: "text-blue-100" },
-    jsx:  { label: "JS",   color: "bg-blue-600",    text: "text-blue-100" },
-    ts:   { label: "TS",   color: "bg-blue-600",    text: "text-blue-100" },
-    tsx:  { label: "TS",   color: "bg-blue-600",    text: "text-blue-100" },
-    json: { label: "JSON", color: "bg-blue-600",    text: "text-blue-100" },
-    css:  { label: "CSS",  color: "bg-blue-600",    text: "text-blue-100" },
-    scss: { label: "CSS",  color: "bg-blue-600",    text: "text-blue-100" },
-    html: { label: "HTML", color: "bg-blue-600",    text: "text-blue-100" },
-    yml:  { label: "YAML", color: "bg-blue-600",    text: "text-blue-100" },
-    yaml: { label: "YAML", color: "bg-blue-600",    text: "text-blue-100" },
-    xml:  { label: "XML",  color: "bg-blue-600",    text: "text-blue-100" },
-    env:  { label: "ENV",  color: "bg-blue-600",    text: "text-blue-100" },
-    txt:  { label: "TXT",  color: "bg-neutral-600", text: "text-neutral-100" },
-    pdf:  { label: "PDF",  color: "bg-red-600",     text: "text-red-100" },
-  };
+  // Helper function to get file extension badge
+  const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
+    // Don't show badge for directories
+    if (file.type === "dir") {
+      return null;
+    }
 
-  // Image extensions
-  const imageExts = ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp"];
+    // SEO file (both .seo.json and seo.json)
+    if (file.name.endsWith(".seo.json") || file.name === "seo.json") {
+      return (
+        <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
+          SEO
+        </span>
+      );
+    }
 
-  // Get extension
-  const extension = file.name.split('.').pop();
-  if (extension && extension !== file.name) {
-    const extLower = extension.toLowerCase();
+    // Markdown file
+    if (file.name.toLowerCase() === "readme.md" || file.name.endsWith(".md")) {
+      return (
+        <span className="ml-2 text-xs bg-green-600 text-green-100 px-1.5 py-0.5 rounded">
+          MD
+        </span>
+      );
+    }
 
-    if (imageExts.includes(extLower)) {
+    // JavaScript/TypeScript files
+    if (/\.(js|jsx)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          JS
+        </span>
+      );
+    }
+
+    if (/\.(ts|tsx)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          TS
+        </span>
+      );
+    }
+
+    // JSON files
+    if (file.name.endsWith(".json")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          JSON
+        </span>
+      );
+    }
+
+    // CSS/SCSS files
+    if (/\.(css|scss)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          CSS
+        </span>
+      );
+    }
+
+    // HTML files
+    if (file.name.endsWith(".html")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          HTML
+        </span>
+      );
+    }
+
+    // YAML files
+    if (/\.(yml|yaml)$/i.test(file.name)) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          YAML
+        </span>
+      );
+    }
+
+    // XML files
+    if (file.name.endsWith(".xml")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          XML
+        </span>
+      );
+    }
+
+    // Environment files
+    if (file.name.endsWith(".env")) {
+      return (
+        <span className="ml-2 text-xs bg-blue-600 text-blue-100 px-1.5 py-0.5 rounded">
+          ENV
+        </span>
+      );
+    }
+
+    // Text files
+    if (file.name.endsWith(".txt")) {
+      return (
+        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
+          TXT
+        </span>
+      );
+    }
+
+    // Image files
+    if (/\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.name)) {
+      const extension = file.name.split('.').pop()?.toUpperCase();
       return (
         <span className="ml-2 text-xs bg-pink-600 text-pink-100 px-1.5 py-0.5 rounded">
+          {extension}
+        </span>
+      );
+    }
+
+    // PDF files
+    if (file.name.endsWith(".pdf")) {
+      return (
+        <span className="ml-2 text-xs bg-red-600 text-red-100 px-1.5 py-0.5 rounded">
+          PDF
+        </span>
+      );
+    }
+
+    // Default - show file extension
+    const extension = file.name.split('.').pop();
+    if (extension && extension !== file.name) {
+      return (
+        <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
           {extension.toUpperCase()}
         </span>
       );
     }
-    if (extBadges[extLower]) {
-      const { label, color, text } = extBadges[extLower];
-      return (
-        <span className={`ml-2 text-xs ${color} ${text} px-1.5 py-0.5 rounded`}>
-          {label}
-        </span>
-      );
-    }
-    // Default: show extension in neutral badge
-    return (
-      <span className="ml-2 text-xs bg-neutral-600 text-neutral-100 px-1.5 py-0.5 rounded">
-        {extension.toUpperCase()}
-      </span>
-    );
+
+    return null;
+  };
+
+  // Helper function to format ISO date strings
+  function formatDate(dateString: string | null | undefined): string {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Invalid date";
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
   }
 
-  return null;
-};
+  if (status === "loading" || isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center">
+        <div className="animate-pulse text-neutral-400">Loading repository data...</div>
+      </div>
+    );
+  }
 
   function handleCancelCreateSEO() {
       setShowCreateSEO(false);
@@ -1479,332 +1597,6 @@ const getFileExtensionBadge = (file: FileItem): React.ReactNode => {
     setCreateFileError(null);
   }
 
-  // Function to handle custom field addition
-  const handleAddCustomField = () => {
-    if (!customFieldName.trim()) return;
-    
-    let fieldValue: any = "";
-    switch (customFieldType) {
-      case "text":
-        fieldValue = "";
-        break;
-      case "textarea":
-        fieldValue = "";
-        break;
-      case "array":
-        fieldValue = [];
-        break;
-      case "object":
-        fieldValue = {};
-        break;
-    }
-    
-    addSEOField(customFieldName.trim(), fieldValue);
-  };
-
-  // Drag and drop handlers
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  };
-
-const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragOver(true);
-};
-
-const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragOver(false);
-};
-
-const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragOver(false);
-  if (!session?.accessToken) return;
-
-  const files = Array.from(e.dataTransfer.files);
-  if (files.length > 0) {
-    setIsUploading(true);
-    setUploadError(null);
-
-    for (const file of files) {
-      try {
-        const fileName = file.name;
-        const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
-        const content = await file.text();
-
-        // Check if file already exists
-        const existingFileResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-              "User-Agent": "MetaSync-App"
-            }
-          }
-        );
-        if (existingFileResponse.ok) {
-          setUploadError(`A file named "${fileName}" already exists in this location.`);
-          continue;
-        }
-
-        // Create the file in the repo
-        const createResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-              "Content-Type": "application/json",
-              "User-Agent": "MetaSync-App"
-            },
-            body: JSON.stringify({
-              message: `Add ${fileName} via drag and drop`,
-              content: btoa(content),
-              branch: repository?.default_branch || "main"
-            })
-          }
-        );
-        if (!createResponse.ok) {
-          setUploadError(`Failed to upload "${fileName}".`);
-        }
-      } catch (err) {
-        setUploadError("Failed to upload one or more files.");
-      }
-    }
-
-    setIsUploading(false);
-    // Refresh file list after upload
-    if (session.accessToken) {
-      await fetchFiles(owner, repo, currentPath, session.accessToken);
-    }
-  }
-};
-
-  // File input handler
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-      setShowUploadModal(true);
-    }
-    // Reset input
-    e.target.value = '';
-  };
-
-  // Upload files function
-  const uploadFiles = async () => {
-    if (!session?.accessToken || selectedFiles.length === 0) return;
-
-    setIsUploading(true);
-    setUploadError(null);
-    setUploadProgress({});
-
-    try {
-      for (const file of selectedFiles) {
-        // Validate file name
-        const fileNameError = validateFileName(file.name);
-        if (fileNameError) {
-          setUploadError(`Invalid filename "${file.name}": ${fileNameError}`);
-          continue;
-        }
-
-        // Check file size (GitHub has a 100MB limit)
-        if (file.size > 100 * 1024 * 1024) {
-          setUploadError(`File "${file.name}" is too large. Maximum size is 100MB.`);
-          continue;
-        }
-
-        const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-
-        // Check if file already exists
-        try {
-          const existingFileResponse = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-            {
-              headers: {
-                Authorization: `Bearer ${session.accessToken}`,
-                "User-Agent": "MetaSync-App"
-              }
-            }
-          );
-
-          if (existingFileResponse.ok) {
-            if (!confirm(`File "${file.name}" already exists. Do you want to overwrite it?`)) {
-              continue;
-            }
-          }
-        } catch (err) {
-          // File doesn't exist, which is fine
-        }
-
-        // Update progress
-        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
-
-        // Read file content
-        const fileContent = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            // Remove data URL prefix and get base64 content
-            const base64Content = result.split(',')[1];
-            resolve(base64Content);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        // Update progress
-        setUploadProgress(prev => ({ ...prev, [file.name]: 50 }));
-
-        // Upload to GitHub
-        const createResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-              "Content-Type": "application/json",
-              "User-Agent": "MetaSync-App"
-            },
-            body: JSON.stringify({
-              message: `Upload ${file.name} via MetaSync`,
-              content: fileContent,
-              branch: repository?.default_branch || "main"
-            })
-          }
-        );
-
-        if (!createResponse.ok) {
-          const errorData = await createResponse.text();
-          throw new Error(`Failed to upload ${file.name}: ${createResponse.status} - ${errorData}`);
-        }
-
-        // Update progress to complete
-        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
-      }
-
-      // Close modal and refresh files
-      setShowUploadModal(false);
-      setSelectedFiles([]);
-      
-      if (session.accessToken) {
-        await fetchFiles(owner, repo, currentPath, session.accessToken);
-      }
-
-    } catch (err) {
-      console.error("Error uploading files:", err);
-      setUploadError(err instanceof Error ? err.message : "Failed to upload files");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Delete file function
-  const deleteFile = async (file: FileItem) => {
-    if (!session?.accessToken) return;
-
-    const confirmMessage = file.type === "dir" 
-      ? `Are you sure you want to delete the folder "${file.name}" and all its contents? This action cannot be undone.`
-      : `Are you sure you want to delete "${file.name}"? This action cannot be undone.`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      if (file.type === "dir") {
-        // For directories, we need to delete all files recursively
-        // GitHub API doesn't support directory deletion directly
-        setError("Directory deletion is not yet supported. Please delete files individually or use GitHub directly.");
-        return;
-      }
-
-      // Get file SHA for deletion
-      const fileResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-            "User-Agent": "MetaSync-App"
-          }
-        }
-      );
-
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to get file details: ${fileResponse.status}`);
-      }
-
-      const fileData = await fileResponse.json();
-
-      // Delete file
-      const deleteResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-            "Content-Type": "application/json",
-            "User-Agent": "MetaSync-App"
-          },
-          body: JSON.stringify({
-            message: `Delete ${file.name} via MetaSync`,
-            sha: fileData.sha,
-            branch: repository?.default_branch || "main"
-          })
-        }
-      );
-
-      if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.text();
-        throw new Error(`Failed to delete file: ${deleteResponse.status} - ${errorData}`);
-      }
-
-      // Refresh files list
-      if (session.accessToken) {
-        await fetchFiles(owner, repo, currentPath, session.accessToken);
-      }
-
-      // If we were viewing this file, close it
-      if (fileContent && fileContent.path === file.path) {
-        setFileContent(null);
-        setIsEditMode(false);
-        setIsEditingSEO(false);
-        setSeoData(null);
-      }
-
-    } catch (err) {
-      console.error("Error deleting file:", err);
-      setError(err instanceof Error ? err.message : "Failed to delete file");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Clear selected files after upload or on cancel
-  useEffect(() => {
-    if (!showUploadModal) {
-      setSelectedFiles([]);
-      setUploadError(null);
-      setUploadProgress({});
-    }
-  }, [showUploadModal]);
-
-  // File upload modal close handler
-  const handleUploadModalClose = () => {
-    setShowUploadModal(false);
-    setSelectedFiles([]);
-    setUploadError(null);
-    setUploadProgress({});
-  };
-
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       {/* Header */}
@@ -1823,6 +1615,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
           )}
         </div>
         <div className="text-neutral-400 text-sm">
+          <div>Current Date and Time: {currentTime}</div>
           <div>Current User: {session?.user?.name || "Unknown"}</div>
         </div>
       </header>
@@ -1975,6 +1768,14 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                         </svg>
                         {repository.forks_count}
                       </div>
+                      
+                      <div>
+                        Created: {formatDate(repository.created_at)}
+                      </div>
+                      
+                      <div>
+                        Updated: {formatDate(repository.updated_at)}
+                      </div>
                     </div>
                   </div>
                   
@@ -1985,7 +1786,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                       rel="noopener noreferrer"
                       className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded flex items-center"
                     >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                       </svg>
                       View on GitHub
@@ -2074,29 +1875,29 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                                   onClick={() => handleAddPredefinedField("og_title")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  Title
+                                   Title
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_description")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  Description
+                                   Description
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_image")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  Image
+                                   Image
                                 </button>
                                 <button
                                   onClick={() => handleAddPredefinedField("og_url")}
                                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
                                 >
-                                  URL
+                                   URL
                                 </button>
                                 
                                 <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                  Technical SEO
+                                  SEO Technical
                                 </div>
                                 <button
                                   onClick={() => handleAddPredefinedField("canonical_url")}
@@ -2237,16 +2038,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
               </div>
             ) : (
               /* File browser */
-              <div className={`relative bg-neutral-900 border border-neutral-800 rounded-lg${isDragOver ? " ring-2 ring-blue-500" : ""}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                  >
-                    {isDragOver && (
-                      <div className="absolute inset-0 bg-blue-900/60 flex items-center justify-center z-50 pointer-events-none rounded-lg">
-                        <span className="text-white text-lg font-bold">Drop files to upload</span>
-                      </div>
-                    )}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                 <div className="border-b border-neutral-800 p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2272,83 +2064,65 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                       </div>
                     </div>
                     
-                    {/* Upload and Create File Buttons */}
-                    <div className="flex items-center gap-2">
-                      {/* File Upload Button */}
-                      <label className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm cursor-pointer">
+                    {/* Create File Button with Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowCreateFileMenu(!showCreateFileMenu)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Upload Files
-                        <input
-                          type="file"
-                          multiple
-                          onChange={handleFileSelect}
-                          className="hidden"
-                          accept="*/*"
-                        />
-                      </label>
-
-                      {/* Create File Button with Dropdown */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowCreateFileMenu(!showCreateFileMenu)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Create File
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        
-                        {showCreateFileMenu && (
-                          <div className="absolute right-0 mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
-                            <div className="py-1">
-                              <button
-                                onClick={() => handleFilePresetSelect("custom")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                              >
-                                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
-                                <div>
-                                  <div className="font-medium">Custom File</div>
-                                  <div className="text-xs text-neutral-400">Create any type of file</div>
-                                </div>
-                              </button>
-                              
-                              <button
-                                onClick={() => handleFilePresetSelect("seo")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                              >
-                                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
-                                </svg>
-                                <div>
-                                  <div className="font-medium">SEO File</div>
-                                  <div className="text-xs text-neutral-400">Pre-configured SEO metadata template</div>
-                                </div>
-                              </button>
-                              
-                              <button
-                                onClick={() => handleFilePresetSelect("readme")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
-                              >
-                                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <div>
-                                  <div className="font-medium">README.md</div>
-                                  <div className="text-xs text-neutral-400">Project documentation template</div>
-                                </div>
-                              </button>
-                            </div>
+                        Create File
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {showCreateFileMenu && (
+                        <div className="absolute right-0 mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
+                          <div className="py-1">
+                            <button
+                              onClick={() => handleFilePresetSelect("custom")}
+                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                            >
+                              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                              <div>
+                                <div className="font-medium">Custom File</div>
+                                <div className="text-xs text-neutral-400">Create any type of file</div>
+                              </div>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleFilePresetSelect("seo")}
+                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                            >
+                              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
+                              <div>
+                                <div className="font-medium">SEO File</div>
+                                <div className="text-xs text-neutral-400">Pre-configured SEO metadata template</div>
+                              </div>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleFilePresetSelect("readme")}
+                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700 flex items-center gap-3"
+                            >
+                              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <div className="font-medium">README.md</div>
+                                <div className="text-xs text-neutral-400">Project documentation template</div>
+                              </div>
+                            </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2364,38 +2138,22 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                     }).map((file) => (
                       <div 
                         key={file.sha}
-                        className="p-3 hover:bg-neutral-800/50 cursor-pointer group"
+                        className="p-3 hover:bg-neutral-800/50 cursor-pointer"
                         onClick={() => handleFileClick(file)}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="w-7 flex justify-center mr-3">
-                              {getFileIcon(file)}
-                            </div>
-                            <div className="text-neutral-200">
-                              {file.name}
-                              {isSEOFile(file.name, file.path) && (
-                                <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
-                                  SEO
-                                </span>
-                              )}
-                              {!isSEOFile(file.name, file.path) && getFileExtensionBadge(file)}
-                            </div>
+                        <div className="flex items-center">
+                          <div className="w-7 flex justify-center mr-3">
+                            {getFileIcon(file)}
                           </div>
-
-                          {/* Delete Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteFile(file);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-neutral-400 hover:text-red-400 transition-opacity"
-                            title={`Delete ${file.type === 'dir' ? 'folder' : 'file'}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          <div className="text-neutral-200">
+                            {file.name}
+                            {isSEOFile(file.name, file.path) && (
+                              <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-1.5 py-0.5 rounded">
+                                SEO
+                              </span>
+                            )}
+                            {!isSEOFile(file.name, file.path) && getFileExtensionBadge(file)}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -2419,7 +2177,8 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707a1 1 0 00-1.414 0l-1.828 1.828A2 2 0 002 7v10a2 2 0 002 2h10a2 2 0 001.414-.586l1.828-1.828a1 1 0 000-1.414l-3.536-3.536a2 2 0 00-2.828 0l-1.414 1.414-2.828-2.828 1.414-1.414a2 2 0 000-2.828l-3.536-3.536a1 1 0 00-1.414 0l-.707.707z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-white">Create File</h2>
               </div>
@@ -2581,7 +2340,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                         : "bg-purple-600 hover:bg-purple-700 text-white"
                     }`}
                   >
-                    {isCreatingFile ? "Creating..." : "Create File"}
+                    {isCreatingFile ? "Creating..." : "Create SEO File"}
                   </button>
                 </div>
               </div>
@@ -2864,7 +2623,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                                     {
                                         method: "PUT",
                                         headers: {
-                                        Authorization: `Bearer ${session?.accessToken ?? ""}`,
+                                        Authorization: `Bearer ${session?.accessToken}`,
                                         "Content-Type": "application/json",
                                         "User-Agent": "MetaSync-App"
                                         },
@@ -2951,7 +2710,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
       {/* Custom Field Dialog */}
       {showCustomFieldDialog && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="relative bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-md">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-md">
             <div className="flex items-center justify-between border-b border-neutral-800 p-4">
               <h3 className="text-lg font-semibold text-white">Add Custom Field</h3>
               <button 
