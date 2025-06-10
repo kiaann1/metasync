@@ -21,9 +21,23 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Load SEO data on client side if needed
-    // For now, using default data
-    setSeoData(getDefaultSEOData());
+    // Fetch SEO data from JSON file
+    fetch('/seo.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch SEO data');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Loaded SEO data:', data);
+        setSeoData(data);
+      })
+      .catch(error => {
+        console.error('Error loading SEO data:', error);
+        // Fall back to default data if fetch fails
+        setSeoData(getDefaultSEOData());
+      });
   }, []);
 
   return (
