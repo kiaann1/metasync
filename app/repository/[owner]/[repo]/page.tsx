@@ -1318,11 +1318,6 @@ Your project license.
     return textExtensions.some(ext => lower.endsWith(ext));
   };
 
-  // Helper function to determine if a file is an image file based on its extension
-  const isImageFile = (filename: string) => {
-    return /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(filename);
-  };
-
   const getFileIcon = (file: FileItem): React.ReactNode => {
   // SVG Components
   const icons = {
@@ -2048,108 +2043,127 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    {/* Only show "Add Fields" button if .seo.json file and editing SEO */}
-                    {seoData && isEditingSEO && isSEOFile(fileContent.name, fileContent.path) && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowAddFieldMenu(!showAddFieldMenu)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Fields
-                        </button>
-                        {showAddFieldMenu && (
-                          <div className="absolute right-0 mt-2 w-72 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
-                            <div className="py-1">
-                              <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700">
-                                Open Graph Fields
-                              </div>
-                              <button
-                                onClick={() => handleAddPredefinedField("og_title")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Title
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("og_description")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Description
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("og_image")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Image
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("og_url")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                URL
-                              </button>
-                              
-                              <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                Technical SEO
-                              </div>
-                              <button
-                                onClick={() => handleAddPredefinedField("canonical_url")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Canonical URL
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("robots")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Robots Meta
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("structured_data")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Structured Data (JSON-LD)
-                              </button>
-                              
-                              <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                Content Fields
-                              </div>
-                              <button
-                                onClick={() => handleAddPredefinedField("content_section")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Add Content Section
-                              </button>
-                              <button
-                                onClick={() => handleAddPredefinedField("faq")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                FAQ Section
-                              </button>
-                              
-                              <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
-                                Custom
-                              </div>
-                              <button
-                                onClick={() => handleAddPredefinedField("custom")}
-                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
-                              >
-                                Add Custom Field
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {seoData && !isEditingSEO && (
+                    {seoData && ! isEditingSEO && (
                       <button 
                         onClick={() => setIsEditingSEO(true)}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
                       >
                         Edit SEO Content
                       </button>
+                    )}
+                    
+                    {isEditingSEO && (
+                      <>
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowAddFieldMenu(!showAddFieldMenu)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Fields
+                          </button>
+                          
+                          {showAddFieldMenu && (
+                            <div className="absolute right-0 mt-2 w-72 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
+                              <div className="py-1">
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700">
+                                  Open Graph Fields
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_title")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Title
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_description")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Description
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_image")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Image
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("og_url")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  URL
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Technical SEO
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("canonical_url")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Canonical URL
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("robots")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Robots Meta
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("structured_data")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Structured Data (JSON-LD)
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Content Fields
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("content_section")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Add Content Section
+                                </button>
+                                <button
+                                  onClick={() => handleAddPredefinedField("faq")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  FAQ Section
+                                </button>
+                                
+                                <div className="px-3 py-2 text-xs font-medium text-neutral-400 border-b border-neutral-700 border-t">
+                                  Custom
+                                </div>
+                                <button
+                                  onClick={() => handleAddPredefinedField("custom")}
+                                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                                >
+                                  Add Custom Field
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <button 
+                          onClick={handleSaveSEOContent}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Save SEO Changes
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setIsEditingSEO(false);
+                            setSeoFormData(seoData!);
+                          }}
+                          className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
                     )}
                     
                     {isEditMode && !seoData && (
@@ -2181,20 +2195,7 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
                 </div>
                 
                 <div className="p-6">
-                  {/* Image preview */}
-                  {isImageFile(fileContent.name) && fileContent.content.startsWith("Binary file:") ? (
-                    <div className="flex flex-col items-center">
-                      <img
-                        src={fileContent.content.replace("Binary file: ", "")}
-                        alt={fileContent.name}
-                        className="max-w-full max-h-[60vh] rounded border border-neutral-700 bg-neutral-800"
-                        style={{ objectFit: "contain" }}
-                      />
-                      <div className="mt-2 text-neutral-400 text-sm">
-                        {fileContent.name}
-                      </div>
-                    </div>
-                  ) : seoData && isEditingSEO ? (
+                  {seoData && isEditingSEO ? (
                     /* Dynamic SEO Form Editor */
                     <div className="space-y-6">
                       <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-lg p-4 mb-4">
@@ -3031,4 +3032,56 @@ const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
       )}
     </div>
   );
+}
+
+// Instead of importing content files, fetch them at runtime:
+interface ServerSidePropsContext {
+  params: {
+    owner: string;
+    repo: string;
+  };
+}
+
+interface ServerSidePropsReturn {
+  props?: {
+    repository: Repository;
+    files: FileItem[];
+  };
+  notFound?: boolean;
+}
+
+export async function getServerSideProps(context: ServerSidePropsContext): Promise<ServerSidePropsReturn> {
+  const { owner, repo } = context.params;
+
+  // Fetch repository details
+  const repoResponse: Response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers: {
+      "User-Agent": "MetaSync-App"
+    }
+  });
+
+  if (!repoResponse.ok) {
+    return { notFound: true };
+  }
+
+  const repository: Repository = await repoResponse.json();
+
+  // Fetch files in the root directory
+  const filesResponse: Response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/`, 
+    {
+      headers: {
+        "User-Agent": "MetaSync-App"
+      }
+    }
+  );
+
+  const files: FileItem[] | FileItem = filesResponse.ok ? await filesResponse.json() : [];
+
+  return { 
+    props: { 
+      repository,
+      files: Array.isArray(files) ? files : [files]
+    } 
+  };
 }
