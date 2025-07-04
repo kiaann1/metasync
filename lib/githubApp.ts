@@ -305,3 +305,145 @@ export function saveRecentRepository(fullName: string): void {
     console.error('Error saving recent repo:', error);
   }
 }
+
+// Create a new branch from the default branch
+export async function createBranch(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branchName: string,
+  fromBranch: string = "main"
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    // Get the SHA of the source branch
+    const { data: refData } = await octokit.git.getRef({
+      owner,
+      repo,
+      ref: `heads/${fromBranch}`,
+    });
+    
+    // Create new branch
+    const { data } = await octokit.git.createRef({
+      owner,
+      repo,
+      ref: `refs/heads/${branchName}`,
+      sha: refData.object.sha,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error creating branch ${branchName} in ${owner}/${repo}:`, error);
+    throw error;
+  }
+}
+
+// Create or update a file in a specific branch
+export async function createOrUpdateFileInBranch(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  branchName: string,
+  sha?: string
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path,
+      message,
+      content: Buffer.from(content).toString("base64"),
+      branch: branchName,
+      sha,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error saving file ${owner}/${repo}/${path} to branch ${branchName}:`, error);
+    throw error;
+  }
+}
+
+// Create a pull request
+export async function createPullRequest(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  title: string,
+  head: string, // source branch
+  base: string, // target branch
+  body?: string
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.pulls.create({
+      owner,
+      repo,
+      title,
+      head,
+      base,
+      body,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error creating pull request in ${owner}/${repo}:`, error);
+    throw error;
+  }
+}
+
+// Merge a pull request
+export async function mergePullRequest(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  mergeMethod: "merge" | "squash" | "rebase" = "squash"
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.pulls.merge({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      merge_method: mergeMethod,
+    });
+    
+    return data;
+  } catch (error: unknown) {
+    console.error(`Error merging pull request #${pullNumber} in ${owner}/${repo}:`, error);
+    throw error;
+  }
+}
+
+// Check if a branch exists
+export async function branchExists(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branchName: string
+) {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    await octokit.git.getRef({
+      owner,
+      repo,
+      ref: `heads/${branchName}`,
+    });
+    return true;
+  } catch (error: unknown) {
+    if (isGitHubError(error) && error.status === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
