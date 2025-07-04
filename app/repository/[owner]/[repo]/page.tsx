@@ -5,6 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
+import { 
+  createBranch, 
+  createOrUpdateFileInBranch, 
+  createPullRequest, 
+  mergePullRequest, 
+  branchExists 
+} from "@/lib/githubApp";
 
 interface Repository {
   name: string;
@@ -733,9 +740,9 @@ const removeCollaborator = async (username: string) => {
     }
   };
 
-  // Function to save SEO data
+  // Function to save SEO data using branching workflow
 const handleSaveSEOContent = async () => {
-  if (!session?.accessToken || !fileContent) return;
+  if (!session?.accessToken || !fileContent || !repository) return;
   
   clearError();
   
@@ -751,9 +758,18 @@ const handleSaveSEOContent = async () => {
       return;
     }
     
-    // Get current file SHA
+    // Create a unique branch name for this SEO update
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const branchName = `seo-update-${timestamp}`;
+    const defaultBranch = repository.default_branch || "main";
+    
+    // Step 1: Create a new branch
+    console.log(`Creating branch: ${branchName}`);
+    await createBranch(session.accessToken, owner, repo, branchName, defaultBranch);
+    
+    // Step 2: Get current file SHA from the default branch
     const fileResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`, 
+      `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}?ref=${defaultBranch}`, 
       {
         headers: {
           Authorization: `Bearer ${session.accessToken}`,
@@ -763,35 +779,48 @@ const handleSaveSEOContent = async () => {
     );
     
     if (!fileResponse.ok) {
-      handleError(fileResponse, "file access");
-      return;
+      throw new Error(`Failed to get file information: ${fileResponse.statusText}`);
     }
     
     const fileData = await fileResponse.json();
     
-    const updateResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${fileContent.path}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-          "Content-Type": "application/json",
-          "User-Agent": "MetaSync-App"
-        },
-        body: JSON.stringify({
-          message: `Update SEO content via MetaSync`,
-          content: btoa(jsonContent), // base64 encode the content
-          sha: fileData.sha
-        })
-      }
+    // Step 3: Commit changes to the new branch
+    console.log(`Committing SEO changes to branch: ${branchName}`);
+    await createOrUpdateFileInBranch(
+      session.accessToken,
+      owner,
+      repo,
+      fileContent.path,
+      jsonContent,
+      `Update SEO content for ${fileContent.name} via MetaSync`,
+      branchName,
+      fileData.sha
     );
     
-    if (!updateResponse.ok) {
-      handleError(updateResponse, "file update");
-      return;
+    // Step 4: Create pull request
+    console.log(`Creating pull request from ${branchName} to ${defaultBranch}`);
+    const pullRequest = await createPullRequest(
+      session.accessToken,
+      owner,
+      repo,
+      `SEO Update: ${fileContent.name}`,
+      branchName,
+      defaultBranch,
+      `Automated SEO content update for ${fileContent.name} via MetaSync.\n\nThis pull request contains updates to SEO metadata fields.`
+    );
+    
+    // Step 5: Auto-merge the pull request (if user has merge permissions)
+    try {
+      console.log(`Auto-merging pull request #${pullRequest.number}`);
+      await mergePullRequest(session.accessToken, owner, repo, pullRequest.number, "squash");
+      console.log("SEO changes successfully merged!");
+    } catch (mergeError) {
+      console.warn("Auto-merge failed, but pull request was created:", mergeError);
+      // Even if auto-merge fails, we should show success since the PR was created
+      setError(`SEO changes submitted successfully! Pull request #${pullRequest.number} created but requires manual merge.`);
     }
     
-    // Success
+    // Success - update local state
     setFileContent({
       ...fileContent,
       content: jsonContent
@@ -799,7 +828,13 @@ const handleSaveSEOContent = async () => {
     setSeoData(seoFormData);
     setIsEditingSEO(false);
     
+    // Refresh the file list to show any changes
+    if (session.accessToken) {
+      await fetchFiles(owner, repo, currentPath, session.accessToken);
+    }
+    
   } catch (err) {
+    console.error("Error in SEO branching workflow:", err);
     handleError(err, "SEO content save");
   } finally {
     setIsLoading(false);
@@ -930,7 +965,7 @@ Your project license.
 
   // Function to handle SEO file creation
   const handleCreateSEOFile = async () => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken || !repository) return;
     
     // Clear previous errors
     setCreateFileError(null);
@@ -952,11 +987,12 @@ Your project license.
     
     try {
       const filePath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
+      const defaultBranch = repository.default_branch || "main";
       
       // Check if file already exists
       try {
         const existingFileResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+          `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${defaultBranch}`,
           {
             headers: {
               Authorization: `Bearer ${session.accessToken}`,
@@ -976,26 +1012,46 @@ Your project license.
       // Create JSON content from form data
       const jsonContent = JSON.stringify(newSEOData, null, 2);
       
-      const createResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-            "Content-Type": "application/json",
-            "User-Agent": "MetaSync-App"
-          },
-          body: JSON.stringify({
-            message: `Create ${finalFileName} via MetaSync`,
-            content: btoa(jsonContent),
-            branch: repository?.default_branch || "main"
-          })
-        }
+      // Create a unique branch name for this SEO file creation
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const branchName = `seo-create-${finalFileName.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}`;
+      
+      // Step 1: Create a new branch
+      console.log(`Creating branch for new SEO file: ${branchName}`);
+      await createBranch(session.accessToken, owner, repo, branchName, defaultBranch);
+      
+      // Step 2: Create the file in the new branch
+      console.log(`Creating SEO file ${finalFileName} in branch: ${branchName}`);
+      await createOrUpdateFileInBranch(
+        session.accessToken,
+        owner,
+        repo,
+        filePath,
+        jsonContent,
+        `Create ${finalFileName} via MetaSync`,
+        branchName
       );
       
-      if (!createResponse.ok) {
-        handleError(createResponse, "SEO file creation");
-        return;
+      // Step 3: Create pull request
+      console.log(`Creating pull request for new SEO file from ${branchName} to ${defaultBranch}`);
+      const pullRequest = await createPullRequest(
+        session.accessToken,
+        owner,
+        repo,
+        `New SEO File: ${finalFileName}`,
+        branchName,
+        defaultBranch,
+        `Created new SEO file ${finalFileName} via MetaSync.\n\nThis pull request adds a new SEO metadata file with initial configuration.`
+      );
+      
+      // Step 4: Auto-merge the pull request (if user has merge permissions)
+      try {
+        console.log(`Auto-merging pull request #${pullRequest.number} for new SEO file`);
+        await mergePullRequest(session.accessToken, owner, repo, pullRequest.number, "squash");
+        console.log("New SEO file successfully merged!");
+      } catch (mergeError) {
+        console.warn("Auto-merge failed for new SEO file, but pull request was created:", mergeError);
+        setCreateFileError(`SEO file creation submitted successfully! Pull request #${pullRequest.number} created but requires manual merge.`);
       }
       
       // Success
@@ -1015,6 +1071,7 @@ Your project license.
       }
       
     } catch (err) {
+      console.error("Error in SEO file creation workflow:", err);
       handleError(err, "SEO file creation");
     } finally {
       setIsCreatingFile(false);
@@ -1088,10 +1145,15 @@ Your project license.
 
   // Check if a file is a SEO file based on name or path
   const isSEOFile = (filename: string, path: string) => {
+    // Match files ending in .seo.json (like about.seo.json, contact.seo.json)
+    // Also match standalone seo.json files for backward compatibility
     return filename.endsWith(".seo.json") || 
            path.endsWith(".seo.json") || 
            filename === "seo.json" || 
-           path.endsWith("/seo.json");
+           path.endsWith("/seo.json") ||
+           // Additional patterns to catch files ending in .seo. followed by any extension
+           /\.seo\.[^/]*$/.test(filename) ||
+           /\.seo\.[^/]*$/.test(path);
   };
 
   // Parse SEO content from a file
